@@ -1,30 +1,21 @@
-import * as z from "zod";
-import { createAgent, tool } from "langchain";
-import { ChatOpenAI } from "@langchain/openai";
+/**
+ * AI Agents Boilerplate
+ * Quick start example - see /examples for more
+ */
 
-const model = new ChatOpenAI({
-    modelName: process.env.OPEN_ROUTER_MODEL,
-    apiKey: process.env.OPEN_ROUTER_API_KEY,
-    configuration: {
-        baseURL: "https://openrouter.ai/api/v1",
-    },
-});
+import { simpleAgent } from "./src/agents/index.ts";
 
-const getWeather = tool(({ city }) => `It's always sunny in ${city}!`, {
-    name: "get_weather",
-    description: "Get the weather for a given city",
-    schema: z.object({
-        city: z.string(),
-    }),
-});
+async function main() {
+    console.log("🤖 AI Agents Boilerplate\n");
 
-const agent = createAgent({
-    model,
-    tools: [getWeather],
-});
+    const response = await simpleAgent.invoke({
+        messages: [
+            { role: "user", content: "Hello! Tell me a fun fact about AI agents." },
+        ],
+    });
 
-console.log(
-    await agent.invoke({
-        messages: [{ role: "user", content: "What's the weather in Tokyo?" }],
-    }),
-);
+    console.log("Agent:", response);
+    console.log("\n✓ Check the /examples folder for more use cases!");
+}
+
+main().catch(console.error);
