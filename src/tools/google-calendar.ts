@@ -92,7 +92,8 @@ Attendees: ${attendees.join(", ")}
 Google Meet: ${meetLink}
 Calendar Link: ${response.data.htmlLink}`;
             } catch (error) {
-                if ((error as any).message?.includes("credentials") || (error as any).message?.includes("auth")) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                if (errorMessage.includes("credentials") || errorMessage.includes("auth")) {
                     return `⚠ Google Calendar not configured. Set up OAuth2 credentials:
 1. Create project in Google Cloud Console
 2. Enable Google Calendar API
@@ -153,10 +154,11 @@ export function checkAvailabilityTool(config: GoogleCalendarConfig = {}) {
 
                 return `Busy time slots from ${startDate} to ${endDate}:\n\n${busySlots}`;
             } catch (error) {
-                if ((error as any).message?.includes("credentials") || (error as any).message?.includes("auth")) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                if (errorMessage.includes("credentials") || errorMessage.includes("auth")) {
                     return `⚠ Google Calendar not configured. Cannot check availability.\nSet up OAuth2 credentials in .env to enable this feature.`;
                 }
-                return `Error checking availability: ${(error as Error).message}`;
+                return `Error checking availability: ${errorMessage}`;
             }
         },
         {
@@ -204,10 +206,11 @@ export function listMeetingsTool(config: GoogleCalendarConfig = {}) {
 
                 return `Upcoming meetings:\n\n${meetingList}`;
             } catch (error) {
-                if ((error as any).message?.includes("credentials") || (error as any).message?.includes("auth")) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                if (errorMessage.includes("credentials") || errorMessage.includes("auth")) {
                     return `⚠ Google Calendar not configured. Cannot list meetings.\nSet up OAuth2 credentials in .env to enable this feature.`;
                 }
-                return `Error listing meetings: ${(error as Error).message}`;
+                return `Error listing meetings: ${errorMessage}`;
             }
         },
         {
