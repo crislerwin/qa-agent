@@ -16,6 +16,7 @@ Perfect for building Discord bots, task automation agents, RAG systems, and conv
   - Redis-based chat memory
 - 🐳 **Docker Setup**: PostgreSQL and Redis run locally via Docker
 - 💬 **Discord Integration**: Full Discord bot support out of the box
+- 🌐 **REST API**: Elysia-based API server with all agent endpoints
 - 🏗️ **Factory Pattern**: Quick agent creation with preset configurations
 - 📚 **Complete Examples**: Learn from working examples
 
@@ -134,6 +135,25 @@ const bot = await createDiscordBot({ agent });
 // Bot is now running!
 ```
 
+### REST API
+
+```typescript
+import { startAPIServer } from "./src/api/server.ts";
+
+// Start API server on port 3000
+startAPIServer({ port: 3000 });
+
+// Or make requests
+fetch("http://localhost:3000/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+        message: "Hello!",
+        model: "free"
+    })
+});
+```
+
 ## 🛠️ Available Agents
 
 ### Factory Functions
@@ -190,6 +210,8 @@ bun run examples/rag-agent.ts
 bun run examples/task-automation.ts
 bun run examples/discord-bot.ts
 bun run examples/full-agent.ts
+bun run examples/api-server.ts      # Start API server
+bun run examples/api-client.ts      # API client examples
 ```
 
 ## 🌟 Use Cases
@@ -197,6 +219,7 @@ bun run examples/full-agent.ts
 This boilerplate is perfect for:
 
 - 💬 **Discord/Slack bots** with AI capabilities
+- 🌐 **REST API backends** for AI-powered apps
 - 📅 **Meeting scheduling assistants**
 - 🔍 **Research agents** with web search
 - 📚 **Documentation Q&A** with RAG
@@ -205,6 +228,7 @@ This boilerplate is perfect for:
 
 ## 📖 Documentation
 
+- [API Documentation](docs/API.md) - REST API endpoints reference
 - [Docker Setup Guide](docs/DOCKER_SETUP.md) - PostgreSQL + Redis setup
 - [Environment Setup Guide](docs/ENVIRONMENT_SETUP.md) - Complete guide for all API keys
 - Examples in `/examples` - Working code for all use cases

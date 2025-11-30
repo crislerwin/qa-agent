@@ -10,11 +10,14 @@ async function main() {
 
     const response = await simpleAgent.invoke({
         messages: [
-            { role: "user", content: "Hello! Tell me a fun fact about AI agents." },
+            {
+                role: "user",
+                content: "Hello! Tell me a fun fact about AI agents.",
+            },
         ],
     });
 
-    console.log("Agent:", response);
+    console.log("Agent:", response.messages);
     console.log("\n✓ Check the /examples folder for more use cases!");
 }
 

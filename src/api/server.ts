@@ -57,3 +57,8 @@ export function startAPIServer(config: APIServerConfig = {}) {
 
     return app;
 }
+
+// Start server when file is run directly
+if (import.meta.main) {
+    startAPIServer();
+}

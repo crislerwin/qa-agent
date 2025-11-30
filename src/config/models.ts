@@ -20,11 +20,16 @@ export function createOpenRouterModel(config: ModelConfig = {}): BaseChatModel {
     const apiKey = config.apiKey || process.env.OPEN_ROUTER_API_KEY;
 
     if (!apiKey) {
-        throw new Error("OPEN_ROUTER_API_KEY not found in environment or config");
+        throw new Error(
+            "OPEN_ROUTER_API_KEY not found in environment or config",
+        );
     }
 
     return new ChatOpenAI({
-        modelName: config.modelName || process.env.OPEN_ROUTER_MODEL || "google/gemini-flash-1.5",
+        modelName:
+            config.modelName ||
+            process.env.OPEN_ROUTER_MODEL ||
+            "google/gemini-flash-1.5",
         apiKey,
         temperature: config.temperature ?? 0.7,
         maxTokens: config.maxTokens,
@@ -42,11 +47,14 @@ export function createGeminiModel(config: ModelConfig = {}): BaseChatModel {
     const apiKey = config.apiKey || process.env.GOOGLE_AI_STUDIO_API_KEY;
 
     if (!apiKey) {
-        throw new Error("GOOGLE_AI_STUDIO_API_KEY not found in environment or config");
+        throw new Error(
+            "GOOGLE_AI_STUDIO_API_KEY not found in environment or config",
+        );
     }
 
     return new ChatGoogleGenerativeAI({
-        modelName: config.modelName || process.env.GEMINI_MODEL || "gemini-1.5-flash",
+        modelName:
+            config.modelName || process.env.GEMINI_MODEL || "gemini-1.5-flash",
         apiKey,
         temperature: config.temperature ?? 0.7,
         maxOutputTokens: config.maxTokens,
@@ -65,7 +73,7 @@ export function getDefaultModel(): BaseChatModel {
         return createGeminiModel();
     }
     throw new Error(
-        "No API key found. Set OPEN_ROUTER_API_KEY or GOOGLE_AI_STUDIO_API_KEY in .env"
+        "No API key found. Set OPEN_ROUTER_API_KEY or GOOGLE_AI_STUDIO_API_KEY in .env",
     );
 }
 
@@ -74,50 +82,58 @@ export function getDefaultModel(): BaseChatModel {
  */
 export const ModelPresets = {
     /** FREE - Gemini Flash via OpenRouter (fast, good for testing) */
-    free: () => createOpenRouterModel({
-        modelName: "google/gemini-flash-1.5",
-        temperature: 0.7,
-    }),
+    free: () =>
+        createOpenRouterModel({
+            modelName: "x-ai/grok-4.1-fast:free",
+            temperature: 0.7,
+        }),
 
     /** FREE - Gemini Flash via AI Studio (generous free tier) */
-    freeGemini: () => createGeminiModel({
-        modelName: "gemini-1.5-flash",
-        temperature: 0.7,
-    }),
+    freeGemini: () =>
+        createGeminiModel({
+            modelName: "gemini-1.5-flash",
+            temperature: 0.7,
+        }),
 
     /** FREE - Meta Llama 3.1 8B via OpenRouter */
-    freeLlama: () => createOpenRouterModel({
-        modelName: "meta-llama/llama-3.1-8b-instruct:free",
-        temperature: 0.7,
-    }),
+    freeLlama: () =>
+        createOpenRouterModel({
+            modelName: "meta-llama/llama-3.1-8b-instruct:free",
+            temperature: 0.7,
+        }),
 
     /** FREE - Qwen 2.5 7B via OpenRouter */
-    freeQwen: () => createOpenRouterModel({
-        modelName: "qwen/qwen-2.5-7b-instruct:free",
-        temperature: 0.7,
-    }),
+    freeQwen: () =>
+        createOpenRouterModel({
+            modelName: "qwen/qwen-2.5-7b-instruct:free",
+            temperature: 0.7,
+        }),
 
     /** PAID - Fast and cost-effective */
-    fast: () => createOpenRouterModel({
-        modelName: "anthropic/claude-3-haiku",
-        temperature: 0.7,
-    }),
+    fast: () =>
+        createOpenRouterModel({
+            modelName: "anthropic/claude-3-haiku",
+            temperature: 0.7,
+        }),
 
     /** PAID - Balanced performance */
-    balanced: () => createOpenRouterModel({
-        modelName: "anthropic/claude-3.5-sonnet",
-        temperature: 0.7,
-    }),
+    balanced: () =>
+        createOpenRouterModel({
+            modelName: "anthropic/claude-3.5-sonnet",
+            temperature: 0.7,
+        }),
 
     /** PAID - Most capable */
-    powerful: () => createOpenRouterModel({
-        modelName: "anthropic/claude-3-opus",
-        temperature: 0.7,
-    }),
+    powerful: () =>
+        createOpenRouterModel({
+            modelName: "anthropic/claude-3-opus",
+            temperature: 0.7,
+        }),
 
     /** PAID - Gemini Pro for multimodal */
-    geminiPro: () => createGeminiModel({
-        modelName: "gemini-1.5-pro",
-        temperature: 0.7,
-    }),
+    geminiPro: () =>
+        createGeminiModel({
+            modelName: "gemini-1.5-pro",
+            temperature: 0.7,
+        }),
 } as const;
