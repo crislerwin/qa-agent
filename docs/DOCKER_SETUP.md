@@ -16,6 +16,7 @@ docker-compose up -d
 ```
 
 This will start:
+
 - **PostgreSQL 16** with pgvector extension on port `5432`
 - **Redis 7** on port `6379`
 
@@ -54,6 +55,7 @@ docker-compose logs -f
 - **Connection String**: `postgresql://postgres:postgres@localhost:5432/agents_db`
 
 The database is automatically initialized with:
+
 - `vector` extension enabled
 - `documents` table for RAG
 - Vector similarity indexes
@@ -193,8 +195,8 @@ Data is persisted in Docker volumes:
 docker volume ls
 
 # Inspect volume
-docker volume inspect agents-boilerplate_postgres_data
-docker volume inspect agents-boilerplate_redis_data
+docker volume inspect agentforge_postgres_data
+docker volume inspect agentforge_redis_data
 ```
 
 ### Backup Data
@@ -278,33 +280,38 @@ docker-compose exec redis redis-cli ping
 For production, you should:
 
 1. **Change default passwords**
+
    ```yaml
    environment:
      POSTGRES_PASSWORD: your_secure_password
    ```
 
 2. **Use environment variables**
+
    ```yaml
    environment:
      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
    ```
 
 3. **Configure backups**
+
    - Set up automated backups
    - Test restore procedures
 
 4. **Use external volumes**
+
    ```yaml
    volumes:
      - /your/backup/path:/var/lib/postgresql/data
    ```
 
 5. **Resource limits**
+
    ```yaml
    deploy:
      resources:
        limits:
-         cpus: '2'
+         cpus: "2"
          memory: 4G
    ```
 
