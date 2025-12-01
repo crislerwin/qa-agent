@@ -1,4 +1,4 @@
-# AI Agents Boilerplate
+# AgentForge
 
 🚀 **A modular, production-ready boilerplate for building AI agents** with LangChain, LangGraph, and modern AI APIs.
 
@@ -64,7 +64,7 @@ bun run index.ts
 ## 📁 Project Structure
 
 ```
-agents-boilerplate/
+agentforge/
 ├── src/
 │   ├── agents/           # Pre-made agent configurations
 │   ├── api/              # REST API server
@@ -98,7 +98,7 @@ agents-boilerplate/
 import { simpleAgent } from "./src/agents/index.ts";
 
 const response = await simpleAgent.invoke({
-    messages: [{ role: "user", content: "Hello!" }],
+  messages: [{ role: "user", content: "Hello!" }],
 });
 ```
 
@@ -108,13 +108,11 @@ const response = await simpleAgent.invoke({
 import { createWebAgent, ModelPresets } from "./src/agents/index.ts";
 
 const agent = createWebAgent({
-    model: ModelPresets.free(), // Uses free Gemini Flash
+  model: ModelPresets.free(), // Uses free Gemini Flash
 });
 
 const response = await agent.invoke({
-    messages: [
-        { role: "user", content: "Search the web for latest AI news" },
-    ],
+  messages: [{ role: "user", content: "Search the web for latest AI news" }],
 });
 ```
 
@@ -127,9 +125,7 @@ const rag = new PGVectorRAG(); // Uses local PostgreSQL via Docker
 const agent = createRAGAgent(rag);
 
 await agent.invoke({
-    messages: [
-        { role: "user", content: "Add this to knowledge base: ..." },
-    ],
+  messages: [{ role: "user", content: "Add this to knowledge base: ..." }],
 });
 ```
 
@@ -159,12 +155,12 @@ startAPIServer({ port: 3000 });
 
 // Example: Chat
 fetch("http://localhost:3000/api/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-        message: "Hello!",
-        model: "free"
-    })
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    message: "Hello!",
+    model: "free",
+  }),
 });
 
 // Example: Upload file
@@ -173,8 +169,8 @@ formData.append("file", fileBlob);
 formData.append("processImmediately", "true");
 
 fetch("http://localhost:3000/api/files/upload", {
-    method: "POST",
-    body: formData
+  method: "POST",
+  body: formData,
 });
 ```
 
@@ -195,31 +191,34 @@ fetch("http://localhost:3000/api/files/upload", {
 import { ModelPresets } from "./src/config/models.ts";
 
 // FREE models
-ModelPresets.free()        // Gemini Flash via OpenRouter
-ModelPresets.freeGemini()  // Gemini Flash via AI Studio
-ModelPresets.freeLlama()   // Llama 3.1 8B
-ModelPresets.freeQwen()    // Qwen 2.5 7B
+ModelPresets.free(); // Gemini Flash via OpenRouter
+ModelPresets.freeGemini(); // Gemini Flash via AI Studio
+ModelPresets.freeLlama(); // Llama 3.1 8B
+ModelPresets.freeQwen(); // Qwen 2.5 7B
 
 // PAID models
-ModelPresets.fast()        // Claude Haiku
-ModelPresets.balanced()    // Claude Sonnet
-ModelPresets.powerful()    // Claude Opus
-ModelPresets.geminiPro()   // Gemini Pro
+ModelPresets.fast(); // Claude Haiku
+ModelPresets.balanced(); // Claude Sonnet
+ModelPresets.powerful(); // Claude Opus
+ModelPresets.geminiPro(); // Gemini Pro
 ```
 
 ## 🔧 Tools Available
 
 ### Web Tools
+
 - `createWebSearchTool()` - Tavily web search
 - `createNewsSearchTool()` - Latest news search
 - `createURLFetchTool()` - Fetch content from URLs
 
 ### Task Automation
+
 - `createMeetingTool()` - Schedule Google Meet meetings
 - `checkAvailabilityTool()` - Check calendar availability
 - `listMeetingsTool()` - List upcoming meetings
 
 ### RAG (Knowledge Base)
+
 - `PGVectorRAG.createSearchTool()` - Search knowledge base
 - `PGVectorRAG.createAddDocumentTool()` - Add documents
 
@@ -237,11 +236,13 @@ Upload files, process them into embeddings, and store them in your vector databa
 ### Quick Start
 
 **1. Start the API server:**
+
 ```bash
 bun run start:dev
 ```
 
 **2. Upload a file:**
+
 ```bash
 # Upload and process immediately
 curl -X POST http://localhost:3000/api/files/upload \
@@ -250,6 +251,7 @@ curl -X POST http://localhost:3000/api/files/upload \
 ```
 
 **3. Search your documents:**
+
 ```bash
 curl -X POST http://localhost:3000/api/rag/search \
   -H "Content-Type: application/json" \
@@ -257,24 +259,26 @@ curl -X POST http://localhost:3000/api/rag/search \
 ```
 
 **4. Run the test:**
+
 ```bash
 bun run test:upload
 ```
 
 ### API Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/files/upload` | POST | Upload file (optionally process immediately) |
-| `/api/files/process/:filename` | POST | Process uploaded file into embeddings |
-| `/api/files/process-all` | POST | Process all uploaded files in batch |
-| `/api/files/list` | GET | List all uploaded files |
-| `/api/files/:filename` | DELETE | Delete specific file |
-| `/api/files/` | DELETE | Clear all uploaded files |
+| Endpoint                       | Method | Description                                  |
+| ------------------------------ | ------ | -------------------------------------------- |
+| `/api/files/upload`            | POST   | Upload file (optionally process immediately) |
+| `/api/files/process/:filename` | POST   | Process uploaded file into embeddings        |
+| `/api/files/process-all`       | POST   | Process all uploaded files in batch          |
+| `/api/files/list`              | GET    | List all uploaded files                      |
+| `/api/files/:filename`         | DELETE | Delete specific file                         |
+| `/api/files/`                  | DELETE | Clear all uploaded files                     |
 
 ### Usage Examples
 
 **Upload and process immediately:**
+
 ```bash
 curl -X POST http://localhost:3000/api/files/upload \
   -F "file=@mydata.txt" \
@@ -282,6 +286,7 @@ curl -X POST http://localhost:3000/api/files/upload \
 ```
 
 **Upload first, process later:**
+
 ```bash
 # Upload
 curl -X POST http://localhost:3000/api/files/upload \
@@ -292,6 +297,7 @@ curl -X POST http://localhost:3000/api/files/process/mydata.txt
 ```
 
 **Batch upload and process:**
+
 ```bash
 # Upload multiple files
 curl -X POST http://localhost:3000/api/files/upload -F "file=@file1.txt"
@@ -303,6 +309,7 @@ curl -X POST http://localhost:3000/api/files/process-all
 ```
 
 **List uploaded files:**
+
 ```bash
 curl http://localhost:3000/api/files/list
 ```
@@ -319,6 +326,7 @@ curl http://localhost:3000/api/files/list
 ### Configuration
 
 Default settings (customizable in `src/services/file-processor.ts`):
+
 - **Upload directory**: `./uploads`
 - **Chunk size**: 1000 characters
 - **Chunk overlap**: 200 characters
@@ -333,6 +341,7 @@ bun run test:upload
 ```
 
 This will:
+
 - Create a test document
 - Upload and process it
 - Run example searches
@@ -377,14 +386,14 @@ This boilerplate is perfect for:
 
 Run everything locally with Docker (no external accounts needed for databases!):
 
-| Service | Setup | What It Does |
-|---------|-------|--------------|
-| OpenRouter | ✅ Free tier | AI Model (Gemini, Llama, Qwen) |
-| Google AI Studio | ✅ Free tier | AI Model (Gemini) |
-| PostgreSQL + pgvector | 🐳 Docker (local) | Vector database for RAG |
-| Redis | 🐳 Docker (local) | Chat memory |
-| Tavily | ✅ Free tier (1,000/mo) | Web search |
-| Discord | ✅ Free | Bot hosting |
+| Service               | Setup                   | What It Does                   |
+| --------------------- | ----------------------- | ------------------------------ |
+| OpenRouter            | ✅ Free tier            | AI Model (Gemini, Llama, Qwen) |
+| Google AI Studio      | ✅ Free tier            | AI Model (Gemini)              |
+| PostgreSQL + pgvector | 🐳 Docker (local)       | Vector database for RAG        |
+| Redis                 | 🐳 Docker (local)       | Chat memory                    |
+| Tavily                | ✅ Free tier (1,000/mo) | Web search                     |
+| Discord               | ✅ Free                 | Bot hosting                    |
 
 **🐳 = Runs locally via Docker - no account or payment needed!**
 
