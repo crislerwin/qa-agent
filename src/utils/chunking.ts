@@ -117,26 +117,3 @@ export async function clusterSemanticChunking(
 
   return chunks;
 }
-
-/**
- * Simple text splitter for chunking documents
- * Kept for backward compatibility or fallback
- */
-export function splitText(
-  text: string,
-  chunkSize: number = 1000,
-  overlap: number = 200
-): string[] {
-  const chunks: string[] = [];
-  let start = 0;
-
-  while (start < text.length) {
-    const end = Math.min(start + chunkSize, text.length);
-    chunks.push(text.slice(start, end));
-    start = end - overlap;
-
-    if (start >= text.length - overlap) break;
-  }
-
-  return chunks;
-}

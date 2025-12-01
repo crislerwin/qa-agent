@@ -31,9 +31,6 @@ COPY --from=install /temp/prod/node_modules node_modules
 COPY --from=prerelease /usr/src/app/dist/server.js server.js
 COPY --from=prerelease /usr/src/app/package.json .
 
-# Create uploads directory
-RUN mkdir -p uploads
-
 # Install system dependencies for Playwright
 RUN apt-get update && apt-get install -y \
     libnss3 \
@@ -50,6 +47,9 @@ RUN apt-get update && apt-get install -y \
     libgbm1 \
     libasound2 \
     && rm -rf /var/lib/apt/lists/*
+
+# Create uploads directory with proper permissions
+RUN mkdir -p uploads && chown -R bun:bun uploads && chmod -R 755 uploads
 
 # Switch to bun user
 USER bun

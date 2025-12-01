@@ -55,7 +55,7 @@ services:
       - GEMINI_MODEL=${GEMINI_MODEL}
       - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
     volumes:
-      - ./uploads:/usr/src/app/uploads
+      - uploads_data:/usr/src/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -65,3 +65,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  uploads_data:
