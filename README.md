@@ -324,7 +324,7 @@ curl http://localhost:3000/api/files/list
 
 1. **Upload** - Files saved to `./uploads` directory
 2. **Parse** - Content extracted based on file type
-3. **Chunk** - Text split into optimal sizes (1000 chars, 200 overlap)
+3. **Chunk** - **Cluster Semantic Chunking**: Uses dynamic programming to split text into semantically coherent groups based on vector similarity (instead of arbitrary character counts).
 4. **Embed** - Each chunk converted to vector embedding
 5. **Store** - Embeddings saved in PostgreSQL with pgvector
 6. **Search** - Semantic search across all documents
