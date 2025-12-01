@@ -39,21 +39,15 @@ services:
     ports:
       - "8000:8000"
     ipc: host
+    env_file:
+      - .env
     environment:
+      # Docker-specific overrides (these take precedence over .env file)
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agents_db
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - API_PORT=8000
       - API_HOST=0.0.0.0
-      - CORS_ORIGINS=${CORS_ORIGINS}
-      - ALLOWED_IPS=${ALLOWED_IPS}
-      # Pass through API keys from host environment
-      - OPEN_ROUTER_API_KEY=${OPEN_ROUTER_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - TAVILY_API_KEY=${TAVILY_API_KEY}
-      - GOOGLE_AI_STUDIO_API_KEY=${GOOGLE_AI_STUDIO_API_KEY}
-      - GEMINI_MODEL=${GEMINI_MODEL}
-      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
     volumes:
       - uploads_data:/usr/src/app/uploads
     depends_on:
