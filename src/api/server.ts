@@ -6,6 +6,9 @@ import { ragRoutes } from "./routes/rag.ts";
 import { toolsRoutes } from "./routes/tools.ts";
 import { fileRoutes } from "./routes/files.ts";
 import { errorHandler } from "./middleware/error-handler.ts";
+import { createLogger } from "../utils/logger.ts";
+
+const logger = createLogger("server");
 
 /**
  * API Server configuration
@@ -68,8 +71,8 @@ export function startAPIServer(config: APIServerConfig = {}) {
 
   app.listen({ port, hostname });
 
-  console.log(`🚀 API Server running at http://${hostname}:${port}`);
-  console.log(`📚 Health check: http://${hostname}:${port}/health`);
+  logger.log(`🚀 API Server running at http://${hostname}:${port}`);
+  logger.log(`📚 Health check: http://${hostname}:${port}/health`);
 
   return app;
 }
