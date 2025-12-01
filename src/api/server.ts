@@ -3,6 +3,7 @@ import { cors } from "@elysiajs/cors";
 import { chatRoutes } from "./routes/chat.ts";
 import { ragRoutes } from "./routes/rag.ts";
 import { toolsRoutes } from "./routes/tools.ts";
+import { fileRoutes } from "./routes/files.ts";
 import { errorHandler } from "./middleware/error-handler.ts";
 
 /**
@@ -28,6 +29,7 @@ export function createAPIServer(config: APIServerConfig = {}) {
                 chat: "/api/chat",
                 rag: "/api/rag",
                 tools: "/api/tools",
+                files: "/api/files",
             },
         }))
         .get("/health", () => ({
@@ -36,7 +38,8 @@ export function createAPIServer(config: APIServerConfig = {}) {
         }))
         .use(chatRoutes)
         .use(ragRoutes)
-        .use(toolsRoutes);
+        .use(toolsRoutes)
+        .use(fileRoutes);
 
     return app;
 }

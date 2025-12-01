@@ -78,12 +78,12 @@ export class PGVectorRAG {
                 )
             `);
 
-            // Create vector similarity index
+            // Create vector similarity index using HNSW (Hierarchical Navigable Small World)
+            // HNSW is more robust for varying dataset sizes and provides better performance
             await client.query(`
                 CREATE INDEX IF NOT EXISTS ${this.tableName}_embedding_idx
                 ON ${this.tableName}
-                USING ivfflat (embedding vector_cosine_ops)
-                WITH (lists = 100)
+                USING hnsw (embedding vector_cosine_ops)
             `);
 
             // Create metadata index

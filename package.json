@@ -6,7 +6,8 @@
     "scripts": {
         "start:dev": "bun --watch run src/api/server.ts",
         "build": "bun build src/api/server.ts --outdir ./dist --target bun",
-        "start": "bun run dist/server.js"
+        "start": "bun run dist/server.js",
+        "test:upload": "bun run examples/test-file-upload.ts"
     },
     "dependencies": {
         "@elysiajs/cors": "^1.2.1",

@@ -1,17 +1,8 @@
 import { Elysia, t } from "elysia";
-import { PGVectorRAG, createDocuments } from "../../tools/rag-pgvector.ts";
+import { createDocuments } from "../../tools/rag-pgvector.ts";
 import { createRAGAgent } from "../../factory/agents.ts";
 import { ModelPresets } from "../../config/models.ts";
-
-// Global RAG instance (in production, use proper state management)
-let ragInstance: PGVectorRAG | null = null;
-
-function getRAGInstance(): PGVectorRAG {
-    if (!ragInstance) {
-        ragInstance = new PGVectorRAG();
-    }
-    return ragInstance;
-}
+import { getRAGInstance } from "../shared-instances.ts";
 
 /**
  * RAG routes for knowledge base operations

@@ -6,6 +6,9 @@ out
 dist
 *.tgz
 
+# uploads
+uploads
+
 # code coverage
 coverage
 *.lcov
