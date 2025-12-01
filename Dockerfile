@@ -34,6 +34,26 @@ COPY --from=prerelease /usr/src/app/package.json .
 # Create uploads directory
 RUN mkdir -p uploads
 
+# Install system dependencies for Playwright
+RUN apt-get update && apt-get install -y \
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    librandr2 \
+    libgbm1 \
+    libasound2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Chromium
+RUN bunx playwright-core install chromium
+
 # run the app
 USER bun
 EXPOSE 8000/tcp

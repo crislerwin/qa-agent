@@ -38,6 +38,7 @@ services:
     container_name: agents-api
     ports:
       - "8000:8000"
+    ipc: host
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agents_db
       - REDIS_HOST=redis

@@ -5,6 +5,7 @@ import { chatRoutes } from "./routes/chat.ts";
 import { ragRoutes } from "./routes/rag.ts";
 import { toolsRoutes } from "./routes/tools.ts";
 import { fileRoutes } from "./routes/files.ts";
+import { scraperRoutes } from "./routes/scraper.ts";
 import { errorHandler } from "./middleware/error-handler.ts";
 import { createLogger } from "../utils/logger.ts";
 
@@ -77,6 +78,7 @@ export function createAPIServer(config: APIServerConfig = {}) {
         rag: "/api/rag",
         tools: "/api/tools",
         files: "/api/files",
+        scraper: "/api/scraper",
       },
     }))
     .get("/health", () => ({
@@ -86,7 +88,8 @@ export function createAPIServer(config: APIServerConfig = {}) {
     .use(chatRoutes)
     .use(ragRoutes)
     .use(toolsRoutes)
-    .use(fileRoutes);
+    .use(fileRoutes)
+    .use(scraperRoutes);
 
   return app;
 }
