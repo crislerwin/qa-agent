@@ -1,5 +1,6 @@
 import { Elysia, t } from "elysia";
 import { createDocuments } from "../../tools/rag-pgvector.ts";
+import { clusterSemanticChunking } from "../../utils/chunking.ts";
 import { createRAGAgent } from "../../factory/agents.ts";
 import { ModelPresets } from "../../config/models.ts";
 import { getRAGInstance } from "../shared-instances.ts";
@@ -17,12 +18,20 @@ export const ragRoutes = new Elysia({ prefix: "/api/rag" })
       const { documents } = body;
       const rag = getRAGInstance();
 
-      const docs = createDocuments(
-        documents.map((d) => d.content),
-        documents.map((d) => d.metadata || {})
-      );
+      const allDocs = [];
+      for (const doc of documents) {
+        const chunks = await clusterSemanticChunking(
+          doc.content,
+          rag.getEmbeddings()
+        );
+        const chunkDocs = createDocuments(
+          chunks,
+          Array(chunks.length).fill(doc.metadata || {})
+        );
+        allDocs.push(...chunkDocs);
+      }
 
-      await rag.addDocuments(docs);
+      await rag.addDocuments(allDocs);
 
       return {
         success: true,

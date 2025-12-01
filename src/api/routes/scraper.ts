@@ -1,6 +1,7 @@
 import { Elysia, t } from "elysia";
 import { getScraperService, getRAGInstance } from "../shared-instances.ts";
-import { splitText, createDocuments } from "../../tools/rag-pgvector.ts";
+import { createDocuments } from "../../tools/rag-pgvector.ts";
+import { clusterSemanticChunking } from "../../utils/chunking.ts";
 
 export const scraperRoutes = new Elysia({ prefix: "/api/scraper" }).post(
   "/scrape",
@@ -12,8 +13,8 @@ export const scraperRoutes = new Elysia({ prefix: "/api/scraper" }).post(
     // Scrape the URL
     const markdown = await scraper.scrape(url);
 
-    // Split into chunks
-    const chunks = splitText(markdown);
+    // Split into chunks using semantic chunking
+    const chunks = await clusterSemanticChunking(markdown, rag.getEmbeddings());
 
     // Create documents with metadata
     const documents = createDocuments(
