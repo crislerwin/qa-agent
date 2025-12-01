@@ -1,5 +1,6 @@
 import { Document } from "@langchain/core/documents";
-import { splitText } from "../tools/rag-pgvector.ts";
+import { clusterSemanticChunking } from "../utils/chunking.ts";
+import type { Embeddings } from "@langchain/core/embeddings";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { createLogger } from "../utils/logger.ts";
@@ -170,15 +171,23 @@ export class FileProcessor {
   /**
    * Process file and convert to documents with embeddings
    */
-  async processFile(metadata: FileMetadata): Promise<Document[]> {
+  async processFile(
+    metadata: FileMetadata,
+    embeddings: Embeddings
+  ): Promise<Document[]> {
     // Read file content
     const content = await this.readFileContent(
       metadata.path,
       metadata.fileType
     );
 
-    // Split into chunks
-    const chunks = splitText(content, this.chunkSize, this.chunkOverlap);
+    // Split into chunks using semantic chunking
+    const chunks = await clusterSemanticChunking(
+      content,
+      embeddings,
+      this.chunkSize,
+      50 // atomSize
+    );
 
     // Create documents with metadata
     const documents = chunks.map(

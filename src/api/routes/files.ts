@@ -50,7 +50,10 @@ export const fileRoutes = new Elysia({ prefix: "/api/files" })
           logger.log("Database already initialized or error:", error);
         }
 
-        const documents = await processor.processFile(metadata);
+        const documents = await processor.processFile(
+          metadata,
+          rag.getEmbeddings()
+        );
         await rag.addDocuments(documents);
 
         return {
@@ -101,7 +104,10 @@ export const fileRoutes = new Elysia({ prefix: "/api/files" })
       }
 
       // Process file and add to vector database
-      const documents = await processor.processFile(fileMetadata);
+      const documents = await processor.processFile(
+        fileMetadata,
+        rag.getEmbeddings()
+      );
       await rag.addDocuments(documents);
 
       return {
@@ -128,7 +134,10 @@ export const fileRoutes = new Elysia({ prefix: "/api/files" })
     let totalDocuments = 0;
 
     for (const fileMetadata of files) {
-      const documents = await processor.processFile(fileMetadata);
+      const documents = await processor.processFile(
+        fileMetadata,
+        rag.getEmbeddings()
+      );
       await rag.addDocuments(documents);
       totalDocuments += documents.length;
     }
