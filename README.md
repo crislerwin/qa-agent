@@ -14,6 +14,7 @@ Perfect for building Discord bots, task automation agents, RAG systems, and conv
   - Google Calendar/Meet scheduling
   - RAG with PostgreSQL + pgvector
   - Redis-based chat memory
+  - **File upload & embeddings** (txt, md, json, csv)
 - 🐳 **Docker Setup**: PostgreSQL and Redis run locally via Docker
 - 💬 **Discord Integration**: Full Discord bot support out of the box
 - 🌐 **REST API**: Elysia-based API server with all agent endpoints
@@ -66,10 +67,14 @@ bun run index.ts
 agents-boilerplate/
 ├── src/
 │   ├── agents/           # Pre-made agent configurations
+│   ├── api/              # REST API server
+│   │   ├── routes/       # API endpoints (chat, rag, tools, files)
+│   │   └── server.ts     # API server setup
 │   ├── config/           # Model configurations (OpenRouter, Gemini)
 │   ├── factory/          # Agent factory functions
 │   ├── integrations/     # Discord bot integration
 │   ├── memory/           # Redis chat history
+│   ├── services/         # File processing, utilities
 │   └── tools/            # Reusable tools (web, calendar, RAG)
 ├── examples/             # Complete usage examples
 │   ├── simple-chat.ts
@@ -77,7 +82,10 @@ agents-boilerplate/
 │   ├── rag-agent.ts
 │   ├── task-automation.ts
 │   ├── discord-bot.ts
-│   └── full-agent.ts
+│   ├── full-agent.ts
+│   ├── test-file-upload.ts
+│   └── sample-document.md
+├── uploads/              # File upload directory (auto-created)
 └── docs/                 # Documentation
     └── ENVIRONMENT_SETUP.md
 ```
@@ -143,7 +151,13 @@ import { startAPIServer } from "./src/api/server.ts";
 // Start API server on port 3000
 startAPIServer({ port: 3000 });
 
-// Or make requests
+// Available endpoints:
+// - /api/chat      - Chat with agents
+// - /api/rag       - RAG operations (search, add documents)
+// - /api/tools     - Tool execution
+// - /api/files     - File upload & processing
+
+// Example: Chat
 fetch("http://localhost:3000/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -151,6 +165,16 @@ fetch("http://localhost:3000/api/chat", {
         message: "Hello!",
         model: "free"
     })
+});
+
+// Example: Upload file
+const formData = new FormData();
+formData.append("file", fileBlob);
+formData.append("processImmediately", "true");
+
+fetch("http://localhost:3000/api/files/upload", {
+    method: "POST",
+    body: formData
 });
 ```
 
@@ -199,6 +223,121 @@ ModelPresets.geminiPro()   // Gemini Pro
 - `PGVectorRAG.createSearchTool()` - Search knowledge base
 - `PGVectorRAG.createAddDocumentTool()` - Add documents
 
+## 📤 File Upload & Embeddings
+
+Upload files, process them into embeddings, and store them in your vector database for semantic search!
+
+### Supported File Types
+
+- **Text** (`.txt`) - Plain text files
+- **Markdown** (`.md`, `.markdown`) - Markdown documents
+- **JSON** (`.json`) - JSON data (auto-formatted)
+- **CSV** (`.csv`) - CSV data (parsed and structured)
+
+### Quick Start
+
+**1. Start the API server:**
+```bash
+bun run start:dev
+```
+
+**2. Upload a file:**
+```bash
+# Upload and process immediately
+curl -X POST http://localhost:3000/api/files/upload \
+  -F "file=@document.txt" \
+  -F "processImmediately=true"
+```
+
+**3. Search your documents:**
+```bash
+curl -X POST http://localhost:3000/api/rag/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "your question", "topK": 5}'
+```
+
+**4. Run the test:**
+```bash
+bun run test:upload
+```
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/files/upload` | POST | Upload file (optionally process immediately) |
+| `/api/files/process/:filename` | POST | Process uploaded file into embeddings |
+| `/api/files/process-all` | POST | Process all uploaded files in batch |
+| `/api/files/list` | GET | List all uploaded files |
+| `/api/files/:filename` | DELETE | Delete specific file |
+| `/api/files/` | DELETE | Clear all uploaded files |
+
+### Usage Examples
+
+**Upload and process immediately:**
+```bash
+curl -X POST http://localhost:3000/api/files/upload \
+  -F "file=@mydata.txt" \
+  -F "processImmediately=true"
+```
+
+**Upload first, process later:**
+```bash
+# Upload
+curl -X POST http://localhost:3000/api/files/upload \
+  -F "file=@mydata.txt"
+
+# Process when ready
+curl -X POST http://localhost:3000/api/files/process/mydata.txt
+```
+
+**Batch upload and process:**
+```bash
+# Upload multiple files
+curl -X POST http://localhost:3000/api/files/upload -F "file=@file1.txt"
+curl -X POST http://localhost:3000/api/files/upload -F "file=@file2.md"
+curl -X POST http://localhost:3000/api/files/upload -F "file=@file3.json"
+
+# Process all at once
+curl -X POST http://localhost:3000/api/files/process-all
+```
+
+**List uploaded files:**
+```bash
+curl http://localhost:3000/api/files/list
+```
+
+### How It Works
+
+1. **Upload** - Files saved to `./uploads` directory
+2. **Parse** - Content extracted based on file type
+3. **Chunk** - Text split into optimal sizes (1000 chars, 200 overlap)
+4. **Embed** - Each chunk converted to vector embedding
+5. **Store** - Embeddings saved in PostgreSQL with pgvector
+6. **Search** - Semantic search across all documents
+
+### Configuration
+
+Default settings (customizable in `src/services/file-processor.ts`):
+- **Upload directory**: `./uploads`
+- **Chunk size**: 1000 characters
+- **Chunk overlap**: 200 characters
+- **Max file size**: 10MB
+
+### Test Script
+
+Run the included test to see it in action:
+
+```bash
+bun run test:upload
+```
+
+This will:
+- Create a test document
+- Upload and process it
+- Run example searches
+- Show results with relevance scores
+
 ## 📚 Examples
 
 Run any example:
@@ -212,6 +351,7 @@ bun run examples/discord-bot.ts
 bun run examples/full-agent.ts
 bun run examples/api-server.ts      # Start API server
 bun run examples/api-client.ts      # API client examples
+bun run test:upload                  # Test file upload & embeddings
 ```
 
 ## 🌟 Use Cases
