@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   postgres:
@@ -37,13 +37,15 @@ services:
     build: .
     container_name: agents-api
     ports:
-      - "3000:3000"
+      - "8000:8000"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agents_db
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - API_PORT=3000
+      - API_PORT=8000
       - API_HOST=0.0.0.0
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - ALLOWED_IPS=${ALLOWED_IPS}
       # Pass through API keys from host environment
       - OPEN_ROUTER_API_KEY=${OPEN_ROUTER_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}

@@ -36,5 +36,5 @@ RUN mkdir -p uploads
 
 # run the app
 USER bun
-EXPOSE 3000/tcp
+EXPOSE 8000/tcp
 ENTRYPOINT [ "bun", "run", "server.js" ]

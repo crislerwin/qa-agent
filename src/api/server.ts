@@ -23,7 +23,31 @@ export interface APIServerConfig {
  * Create API server with all routes
  */
 export function createAPIServer(config: APIServerConfig = {}) {
-  const app = new Elysia()
+  const app = new Elysia();
+
+  // IP Whitelisting Middleware
+  app.onRequest(({ request, set }) => {
+    const allowedIps = process.env.ALLOWED_IPS?.split(",").filter(Boolean);
+    if (allowedIps && allowedIps.length > 0) {
+      const clientIP = app.server?.requestIP(request)?.address;
+
+      // Check if IP is allowed
+      // Note: In Docker/Reverse Proxy scenarios, you might need to check X-Forwarded-For
+      // But for direct connection or simple setups, requestIP works.
+      // We also check X-Forwarded-For as a fallback/alternative if needed.
+      const forwardedFor = request.headers.get("x-forwarded-for");
+      const ip =
+        clientIP || (forwardedFor ? forwardedFor.split(",")[0]?.trim() : null);
+
+      if (ip && !allowedIps.includes(ip)) {
+        logger.warn(`Blocked request from unauthorized IP: ${ip}`);
+        set.status = 403;
+        return "Forbidden: IP not allowed";
+      }
+    }
+  });
+
+  app
     .use(
       swagger({
         exclude: ["/"],
@@ -36,7 +60,14 @@ export function createAPIServer(config: APIServerConfig = {}) {
         },
       })
     )
-    .use(cors(config.enableCors !== false ? {} : undefined))
+    .use(
+      cors({
+        origin: process.env.CORS_ORIGINS
+          ? process.env.CORS_ORIGINS.split(",")
+          : true,
+        ...(config.enableCors !== false ? {} : { origin: false }),
+      })
+    )
     .use(errorHandler)
     .get("/", () => ({
       message: "AI Agents API",
@@ -66,7 +97,7 @@ export function createAPIServer(config: APIServerConfig = {}) {
 export function startAPIServer(config: APIServerConfig = {}) {
   const app = createAPIServer(config);
 
-  const port = config.port || parseInt(process.env.API_PORT || "3000");
+  const port = config.port || parseInt(process.env.API_PORT || "8000");
   const hostname = config.hostname || process.env.API_HOST || "0.0.0.0";
 
   app.listen({ port, hostname });
