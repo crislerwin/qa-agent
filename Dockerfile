@@ -46,15 +46,17 @@ RUN apt-get update && apt-get install -y \
     libxcomposite1 \
     libxdamage1 \
     libxfixes3 \
-    librandr2 \
+    libxrandr2 \
     libgbm1 \
     libasound2 \
     && rm -rf /var/lib/apt/lists/*
+
+# Switch to bun user
+USER bun
 
 # Install Chromium
 RUN bunx playwright-core install chromium
 
 # run the app
-USER bun
 EXPOSE 8000/tcp
 ENTRYPOINT [ "bun", "run", "server.js" ]

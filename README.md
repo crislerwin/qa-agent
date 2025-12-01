@@ -15,6 +15,7 @@ Perfect for building Discord bots, task automation agents, RAG systems, and conv
   - RAG with PostgreSQL + pgvector
   - Redis-based chat memory
   - **File upload & embeddings** (txt, md, json, csv)
+  - **Web Scraping** (Playwright + Readability + Turndown)
 - 🐳 **Docker Setup**: PostgreSQL and Redis run locally via Docker
 - 💬 **Discord Integration**: Full Discord bot support out of the box
 - 🌐 **REST API**: Elysia-based API server with all agent endpoints
@@ -220,7 +221,12 @@ ModelPresets.geminiPro(); // Gemini Pro
 ### RAG (Knowledge Base)
 
 - `PGVectorRAG.createSearchTool()` - Search knowledge base
+- `PGVectorRAG.createSearchTool()` - Search knowledge base
 - `PGVectorRAG.createAddDocumentTool()` - Add documents
+
+### Web Scraping
+
+- `ScraperService` - Scrape, clean, and convert web pages to Markdown
 
 ## 📤 File Upload & Embeddings
 
@@ -346,6 +352,37 @@ This will:
 - Upload and process it
 - Run example searches
 - Show results with relevance scores
+
+## 🕷️ Web Scraping
+
+Extract content from any URL, convert it to clean Markdown, and automatically save it to your vector database for RAG.
+
+### Features
+
+- **Headless Browser**: Uses Playwright to render JavaScript-heavy pages (SPA/SSR)
+- **Content Extraction**: Uses `@mozilla/readability` to remove clutter (ads, navs)
+- **Markdown Conversion**: Converts HTML to clean Markdown
+- **Auto-RAG**: Automatically chunks and saves content to pgvector
+
+### Usage
+
+**Scrape and Save:**
+
+```bash
+curl -X POST http://localhost:8000/api/scraper/scrape \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com"}'
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "chunks_count": 5,
+  "message": "Successfully scraped https://example.com and saved 5 chunks to knowledge base."
+}
+```
 
 ## 📚 Examples
 
