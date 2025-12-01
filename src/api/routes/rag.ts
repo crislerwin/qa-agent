@@ -90,8 +90,16 @@ export const ragRoutes = new Elysia({ prefix: "/api/rag" })
         messages: [{ role: "user", content: message }],
       });
 
+      const messages = response?.messages;
+      const lastMessage =
+        Array.isArray(messages) && messages.length > 0
+          ? messages[messages.length - 1]
+          : null;
+
+      const content = lastMessage?.content || "No response generated";
+
       return {
-        response: response,
+        response: content,
         timestamp: new Date().toISOString(),
       };
     },
