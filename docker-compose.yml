@@ -1,38 +1,6 @@
 version: "3.8"
 
 services:
-  postgres:
-    image: pgvector/pgvector:pg16
-    container_name: agents-postgres
-    environment:
-      POSTGRES_DB: agents_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7-alpine
-    container_name: agents-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   api:
     build: .
     container_name: agents-api
@@ -42,21 +10,34 @@ services:
     env_file:
       - .env
     environment:
-      # Docker-specific overrides (these take precedence over .env file)
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/agents_db
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      # API Configuration
       - API_PORT=8000
       - API_HOST=0.0.0.0
+      # Database (use external PostgreSQL)
+      - DATABASE_URL=${DATABASE_URL}
+      # Redis (use external Redis)
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_URL=${REDIS_URL}
+      # AI Model API Keys
+      - OPEN_ROUTER_API_KEY=${OPEN_ROUTER_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_AI_STUDIO_API_KEY=${GOOGLE_AI_STUDIO_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL}
+      # Optional Services
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - ALLOWED_IPS=${ALLOWED_IPS}
     volumes:
       - uploads_data:/usr/src/app/uploads
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
 
 volumes:
-  postgres_data:
-  redis_data:
   uploads_data:

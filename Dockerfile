@@ -31,7 +31,11 @@ COPY --from=install /temp/prod/node_modules node_modules
 COPY --from=prerelease /usr/src/app/dist/server.js server.js
 COPY --from=prerelease /usr/src/app/package.json .
 
-# Install system dependencies for Playwright
+# Copy database initialization files and scripts
+COPY --from=prerelease /usr/src/app/docker ./docker
+COPY --from=prerelease /usr/src/app/scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
+# Install system dependencies for Playwright, PostgreSQL client, and curl
 RUN apt-get update && apt-get install -y \
     libnss3 \
     libnspr4 \
@@ -46,7 +50,13 @@ RUN apt-get update && apt-get install -y \
     libxrandr2 \
     libgbm1 \
     libasound2 \
+    postgresql-client \
+    curl \
     && rm -rf /var/lib/apt/lists/*
+
+# Make entrypoint executable and set proper ownership
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh && \
+    chown bun:bun /usr/local/bin/docker-entrypoint.sh
 
 # Create uploads directory with proper permissions
 RUN mkdir -p uploads && chown -R bun:bun uploads && chmod -R 755 uploads
@@ -59,4 +69,4 @@ RUN bunx playwright-core install chromium
 
 # run the app
 EXPOSE 8000/tcp
-ENTRYPOINT [ "bun", "run", "server.js" ]
+ENTRYPOINT [ "/usr/local/bin/docker-entrypoint.sh" ]
