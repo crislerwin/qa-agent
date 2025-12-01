@@ -142,7 +142,7 @@ const bot = await createDiscordBot({ agent });
 
 ### REST API
 
-```typescript
+````typescript
 import { startAPIServer } from "./src/api/server.ts";
 
 // Start API server on port 3000
@@ -164,16 +164,16 @@ fetch("http://localhost:3000/api/chat", {
   }),
 });
 
+```typescript
 // Example: Upload file
 const formData = new FormData();
 formData.append("file", fileBlob);
-formData.append("processImmediately", "true");
 
 fetch("http://localhost:3000/api/files/upload", {
   method: "POST",
   body: formData,
 });
-```
+````
 
 ## 🛠️ Available Agents
 
@@ -250,10 +250,9 @@ bun run start:dev
 **2. Upload a file:**
 
 ```bash
-# Upload and process immediately
+# Upload and process automatically
 curl -X POST http://localhost:3000/api/files/upload \
-  -F "file=@document.txt" \
-  -F "processImmediately=true"
+  -F "file=@document.txt"
 ```
 
 **3. Search your documents:**
@@ -272,34 +271,22 @@ bun run test:upload
 
 ### API Endpoints
 
-| Endpoint                       | Method | Description                                  |
-| ------------------------------ | ------ | -------------------------------------------- |
-| `/api/files/upload`            | POST   | Upload file (optionally process immediately) |
-| `/api/files/process/:filename` | POST   | Process uploaded file into embeddings        |
-| `/api/files/process-all`       | POST   | Process all uploaded files in batch          |
-| `/api/files/list`              | GET    | List all uploaded files                      |
-| `/api/files/:filename`         | DELETE | Delete specific file                         |
-| `/api/files/`                  | DELETE | Clear all uploaded files                     |
+| Endpoint                       | Method | Description                           |
+| ------------------------------ | ------ | ------------------------------------- |
+| `/api/files/upload`            | POST   | Upload file and process automatically |
+| `/api/files/process/:filename` | POST   | Process uploaded file (re-process)    |
+| `/api/files/process-all`       | POST   | Process all uploaded files in batch   |
+| `/api/files/list`              | GET    | List all uploaded files               |
+| `/api/files/:filename`         | DELETE | Delete specific file                  |
+| `/api/files/`                  | DELETE | Clear all uploaded files              |
 
 ### Usage Examples
 
-**Upload and process immediately:**
+**Upload and process:**
 
 ```bash
-curl -X POST http://localhost:3000/api/files/upload \
-  -F "file=@mydata.txt" \
-  -F "processImmediately=true"
-```
-
-**Upload first, process later:**
-
-```bash
-# Upload
 curl -X POST http://localhost:3000/api/files/upload \
   -F "file=@mydata.txt"
-
-# Process when ready
-curl -X POST http://localhost:3000/api/files/process/mydata.txt
 ```
 
 **Batch upload and process:**

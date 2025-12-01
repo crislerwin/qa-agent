@@ -14,7 +14,7 @@ export const fileRoutes = new Elysia({ prefix: "/api/files" })
   .post(
     "/upload",
     async ({ body }) => {
-      const { file, processImmediately } = body;
+      const { file } = body;
       const processor = getFileProcessor();
 
       // Validate file extension manually (MIME types can be unreliable)
@@ -35,40 +35,27 @@ export const fileRoutes = new Elysia({ prefix: "/api/files" })
       // Save file
       const metadata = await processor.saveFile(file);
 
-      // Convert string to boolean if needed (FormData sends strings)
-      const shouldProcess =
-        processImmediately === true || processImmediately === "true";
+      // Always process and store in vector database
+      const rag = getRAGInstance();
 
-      // Process and store in vector database if requested
-      if (shouldProcess) {
-        const rag = getRAGInstance();
-
-        // Initialize database if needed
-        try {
-          await rag.initialize();
-        } catch (error) {
-          logger.log("Database already initialized or error:", error);
-        }
-
-        const documents = await processor.processFile(
-          metadata,
-          rag.getEmbeddings()
-        );
-        await rag.addDocuments(documents);
-
-        return {
-          success: true,
-          message: "File uploaded and processed successfully",
-          metadata,
-          documentsCreated: documents.length,
-          timestamp: new Date().toISOString(),
-        };
+      // Initialize database if needed
+      try {
+        await rag.initialize();
+      } catch (error) {
+        logger.log("Database already initialized or error:", error);
       }
+
+      const documents = await processor.processFile(
+        metadata,
+        rag.getEmbeddings()
+      );
+      await rag.addDocuments(documents);
 
       return {
         success: true,
-        message: "File uploaded successfully",
+        message: "File uploaded and processed successfully",
         metadata,
+        documentsCreated: documents.length,
         timestamp: new Date().toISOString(),
       };
     },
@@ -77,7 +64,6 @@ export const fileRoutes = new Elysia({ prefix: "/api/files" })
         file: t.File({
           maxSize: 10 * 1024 * 1024, // 10MB
         }),
-        processImmediately: t.Optional(t.Union([t.Boolean(), t.String()])),
       }),
     }
   )

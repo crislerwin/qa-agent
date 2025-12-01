@@ -50,10 +50,7 @@ tools and memory to perform complex tasks.
   console.log("✓ Created test file: test-document.md");
 }
 
-async function uploadFile(
-  filename: string,
-  processImmediately: boolean = true
-) {
+async function uploadFile(filename: string) {
   console.log(`\n📤 Uploading ${filename}...`);
 
   const file = Bun.file(filename);
@@ -67,10 +64,6 @@ async function uploadFile(
 
   const formData = new FormData();
   formData.append("file", fileObject);
-  // Don't append as string, let the API handle the optional parameter
-  if (processImmediately) {
-    formData.append("processImmediately", "true");
-  }
 
   const response = await fetch(`${API_BASE}/api/files/upload`, {
     method: "POST",
@@ -149,7 +142,7 @@ async function main() {
     await createTestFile();
 
     // Step 2: Upload and process
-    await uploadFile("./test-document.md", true);
+    await uploadFile("./test-document.md");
 
     // Step 3: List files
     await listFiles();
