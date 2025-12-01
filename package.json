@@ -8,7 +8,14 @@
     "build": "bun build src/api/server.ts --outdir ./dist --target bun --external playwright-core",
     "start": "bun run dist/server.js",
     "test": "bun test",
-    "test:upload": "bun run examples/test-file-upload.ts"
+    "test:upload": "bun run examples/test-file-upload.ts",
+    "docker:build": "docker build -t crislerwintlr114/agentforge:latest .",
+    "docker:push": "docker push crislerwintlr114/agentforge:latest",
+    "docker:publish": "bun run docker:build && bun run docker:push",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f api",
+    "docker:restart": "docker-compose restart api"
   },
   "dependencies": {
     "@elysiajs/cors": "^1.2.1",
