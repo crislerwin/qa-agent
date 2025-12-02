@@ -5,7 +5,8 @@ import {
 } from "../../factory/agents.ts";
 import { getDefaultModel, ModelPresets } from "../../config/models.ts";
 import { RedisChatMessageHistory } from "../../memory/redis.ts";
-import { HumanMessage, AIMessage } from "@langchain/core/messages";
+import { ConversationDB } from "../../services/conversation-db.ts";
+import { CHAT_SYSTEM_PROMPTS } from "../../prompts/index.ts";
 
 /**
  * Message request type
@@ -15,14 +16,6 @@ type MessageRequest = {
     conversation_id: string;
     locale: "pt" | "en";
     model?: string;
-};
-
-/**
- * System prompts by locale
- */
-const SYSTEM_PROMPTS = {
-    pt: "Você é um assistente útil e prestativo. Responda sempre em português do Brasil.",
-    en: "You are a helpful and friendly assistant. Always respond in English.",
 };
 
 /**
@@ -42,6 +35,11 @@ function getModelFromString(model?: string) {
             return getDefaultModel();
     }
 }
+
+/**
+ * Initialize conversation database
+ */
+const conversationDB = new ConversationDB();
 
 /**
  * Chat routes for conversational agents
@@ -64,6 +62,13 @@ export const chatRoutes = new Elysia({ prefix: "/api/chat" })
             );
 
             try {
+                // Create or update conversation in database
+                await conversationDB.upsertConversation(
+                    conversation_id,
+                    locale,
+                    model,
+                );
+
                 // Get conversation history
                 const previousMessages = await chatHistory.getMessages();
 
@@ -75,7 +80,7 @@ export const chatRoutes = new Elysia({ prefix: "/api/chat" })
                 const messages = [
                     {
                         role: "system" as const,
-                        content: SYSTEM_PROMPTS[locale],
+                        content: CHAT_SYSTEM_PROMPTS[locale],
                     },
                     ...previousMessages.map((msg) => ({
                         role:
@@ -103,9 +108,21 @@ export const chatRoutes = new Elysia({ prefix: "/api/chat" })
                         ? lastMessage.content
                         : JSON.stringify(response);
 
-                // Save messages to history
+                // Save messages to Redis history
                 await chatHistory.addUserMessage(message);
                 await chatHistory.addAIMessage(String(responseContent));
+
+                // Save messages to database
+                await conversationDB.addMessage(
+                    conversation_id,
+                    "user",
+                    message,
+                );
+                await conversationDB.addMessage(
+                    conversation_id,
+                    "assistant",
+                    String(responseContent),
+                );
 
                 return {
                     response: responseContent,
@@ -145,6 +162,13 @@ export const chatRoutes = new Elysia({ prefix: "/api/chat" })
             );
 
             try {
+                // Create or update conversation in database
+                await conversationDB.upsertConversation(
+                    conversation_id,
+                    locale,
+                    model,
+                );
+
                 // Get conversation history
                 const previousMessages = await chatHistory.getMessages();
 
@@ -156,7 +180,7 @@ export const chatRoutes = new Elysia({ prefix: "/api/chat" })
                 const messages = [
                     {
                         role: "system" as const,
-                        content: SYSTEM_PROMPTS[locale],
+                        content: CHAT_SYSTEM_PROMPTS[locale],
                     },
                     ...previousMessages.map((msg) => ({
                         role:
@@ -184,9 +208,21 @@ export const chatRoutes = new Elysia({ prefix: "/api/chat" })
                         ? lastMessage.content
                         : JSON.stringify(response);
 
-                // Save messages to history
+                // Save messages to Redis history
                 await chatHistory.addUserMessage(message);
                 await chatHistory.addAIMessage(String(responseContent));
+
+                // Save messages to database
+                await conversationDB.addMessage(
+                    conversation_id,
+                    "user",
+                    message,
+                );
+                await conversationDB.addMessage(
+                    conversation_id,
+                    "assistant",
+                    String(responseContent),
+                );
 
                 return {
                     response: responseContent,
@@ -210,26 +246,24 @@ export const chatRoutes = new Elysia({ prefix: "/api/chat" })
         },
     )
     /**
-     * Get conversation history
+     * Get conversation history from database
      */
     .get("/history/:conversation_id", async ({ params }) => {
         const { conversation_id } = params;
 
-        const chatHistory = new RedisChatMessageHistory(conversation_id);
-
         try {
-            const messages = await chatHistory.getMessages();
-            const messageCount = await chatHistory.getMessageCount();
+            const conversation =
+                await conversationDB.getConversation(conversation_id);
+            const messages = await conversationDB.getMessages(conversation_id);
 
             return {
                 conversation_id,
-                message_count: messageCount,
+                conversation,
+                message_count: messages.length,
                 messages: messages.map((msg) => ({
-                    type: msg._getType(),
-                    content:
-                        typeof msg.content === "string"
-                            ? msg.content
-                            : JSON.stringify(msg.content),
+                    role: msg.role,
+                    content: msg.content,
+                    created_at: msg.created_at,
                 })),
             };
         } catch (error) {
@@ -238,20 +272,24 @@ export const chatRoutes = new Elysia({ prefix: "/api/chat" })
         }
     })
     /**
-     * Clear conversation history
+     * Clear conversation history (both Redis and database)
      */
     .delete("/history/:conversation_id", async ({ params }) => {
         const { conversation_id } = params;
 
-        const chatHistory = new RedisChatMessageHistory(conversation_id);
-
         try {
+            // Clear from Redis
+            const chatHistory = new RedisChatMessageHistory(conversation_id);
             await chatHistory.clear();
+
+            // Clear from database
+            await conversationDB.deleteConversation(conversation_id);
 
             return {
                 success: true,
                 conversation_id,
-                message: "Conversation history cleared",
+                message:
+                    "Conversation history cleared from both Redis and database",
                 timestamp: new Date().toISOString(),
             };
         } catch (error) {

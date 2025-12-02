@@ -2,9 +2,44 @@ import { Elysia, t } from "elysia";
 import { createDocuments } from "../../tools/rag-pgvector.ts";
 import { clusterSemanticChunking } from "../../utils/chunking.ts";
 import { createRAGAgent } from "../../factory/agents.ts";
-import { ModelPresets } from "../../config/models.ts";
+import { ModelPresets, getDefaultModel } from "../../config/models.ts";
 import { getRAGInstance } from "../shared-instances.ts";
-import { RAG_SYSTEM_PROMPT } from "../../prompts";
+import { RAG_CHAT_SYSTEM_PROMPTS } from "../../prompts/index.ts";
+import { RedisChatMessageHistory } from "../../memory/redis.ts";
+import { ConversationDB } from "../../services/conversation-db.ts";
+
+/**
+ * Message request type for RAG chat
+ */
+type RAGMessageRequest = {
+    message: string;
+    conversation_id: string;
+    locale: "pt" | "en";
+    model?: string;
+};
+
+/**
+ * Get model based on model string
+ */
+function getModelFromString(model?: string) {
+    if (!model) return getDefaultModel();
+
+    switch (model) {
+        case "free":
+            return ModelPresets.free();
+        case "balanced":
+            return ModelPresets.balanced();
+        case "powerful":
+            return ModelPresets.powerful();
+        default:
+            return getDefaultModel();
+    }
+}
+
+/**
+ * Initialize conversation database
+ */
+const conversationDB = new ConversationDB();
 
 /**
  * RAG routes for knowledge base operations
@@ -79,49 +114,106 @@ export const ragRoutes = new Elysia({ prefix: "/api/rag" })
         },
     )
     /**
-     * Chat with RAG agent
+     * Chat with RAG agent with conversation history
      */
     .post(
         "/chat",
         async ({ body }) => {
-            const { message, model } = body;
+            const { message, conversation_id, locale, model } =
+                body as RAGMessageRequest;
             const rag = getRAGInstance();
 
-            const agentModel =
-                model === "free"
-                    ? ModelPresets.free()
-                    : model === "balanced"
-                      ? ModelPresets.balanced()
-                      : ModelPresets.free();
+            // Create Redis chat history for this conversation
+            const chatHistory = new RedisChatMessageHistory(
+                conversation_id,
+                {},
+                3600, // 1 hour TTL
+            );
 
-            const agent = createRAGAgent(rag, {
-                model: agentModel,
-                systemPrompt: RAG_SYSTEM_PROMPT,
-            });
+            try {
+                // Create or update conversation in database
+                await conversationDB.upsertConversation(
+                    conversation_id,
+                    locale,
+                    model,
+                );
 
-            const response = await agent.invoke({
-                messages: [{ role: "user", content: message }],
-            });
+                // Get conversation history
+                const previousMessages = await chatHistory.getMessages();
 
-            const messages = response?.messages;
-            const lastMessage =
-                Array.isArray(messages) && messages.length > 0
-                    ? messages[messages.length - 1]
-                    : null;
+                // Create agent with specified or default model
+                const agentModel = getModelFromString(model);
+                const agent = createRAGAgent(rag, {
+                    model: agentModel,
+                    systemPrompt: RAG_CHAT_SYSTEM_PROMPTS[locale],
+                });
 
-            const content = lastMessage?.content || "No response generated";
+                // Build messages array with history
+                const messages = [
+                    {
+                        role: "system" as const,
+                        content: RAG_CHAT_SYSTEM_PROMPTS[locale],
+                    },
+                    ...previousMessages.map((msg) => ({
+                        role:
+                            msg._getType() === "human"
+                                ? ("user" as const)
+                                : ("assistant" as const),
+                        content:
+                            typeof msg.content === "string"
+                                ? msg.content
+                                : JSON.stringify(msg.content),
+                    })),
+                    { role: "user" as const, content: message },
+                ];
 
-            return {
-                response: content,
-                timestamp: new Date().toISOString(),
-            };
+                // Invoke agent
+                const response = await agent.invoke({
+                    messages,
+                });
+
+                // Extract response content
+                const lastMessage =
+                    response.messages?.[response.messages.length - 1];
+                const responseContent =
+                    lastMessage && typeof lastMessage.content === "string"
+                        ? lastMessage.content
+                        : JSON.stringify(response);
+
+                // Save messages to Redis history
+                await chatHistory.addUserMessage(message);
+                await chatHistory.addAIMessage(String(responseContent));
+
+                // Save messages to database
+                await conversationDB.addMessage(
+                    conversation_id,
+                    "user",
+                    message,
+                );
+                await conversationDB.addMessage(
+                    conversation_id,
+                    "assistant",
+                    String(responseContent),
+                );
+
+                return {
+                    response: responseContent,
+                    conversation_id,
+                    locale,
+                    model: model || "default",
+                    timestamp: new Date().toISOString(),
+                };
+            } catch (error) {
+                console.error("RAG chat error:", error);
+                throw error;
+            }
         },
         {
             body: t.Object({
                 message: t.String({ minLength: 1 }),
-                model: t.Optional(
-                    t.Union([t.Literal("free"), t.Literal("balanced")]),
-                ),
+                conversation_id: t.String({ minLength: 1 }),
+                locale: t.Union([t.Literal("pt"), t.Literal("en")]),
+                model: t.Optional(t.String()),
             }),
         },
     )

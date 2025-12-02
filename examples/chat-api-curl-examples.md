@@ -61,6 +61,32 @@ curl -X POST http://localhost:3000/api/chat/web \
   }'
 ```
 
+## RAG Chat (with knowledge base)
+
+### English Conversation with RAG
+```bash
+curl -X POST http://localhost:3000/api/rag/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "What information do you have about our products?",
+    "conversation_id": "user-rag-session-1",
+    "locale": "en",
+    "model": "free"
+  }'
+```
+
+### Portuguese Conversation with RAG
+```bash
+curl -X POST http://localhost:3000/api/rag/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "O que você sabe sobre nossos produtos?",
+    "conversation_id": "user-rag-session-2",
+    "locale": "pt",
+    "model": "free"
+  }'
+```
+
 ## Get Conversation History
 
 ```bash

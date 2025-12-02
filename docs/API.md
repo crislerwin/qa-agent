@@ -207,12 +207,14 @@ Search knowledge base
 ---
 
 ### POST /api/rag/chat
-Chat with RAG-enabled agent
+Chat with RAG-enabled agent with conversation history
 
 **Request Body:**
 ```json
 {
   "message": "What do you know about Bun?",
+  "conversation_id": "user-123-session-1",
+  "locale": "en",
   "model": "free" // optional
 }
 ```
@@ -221,8 +223,35 @@ Chat with RAG-enabled agent
 ```json
 {
   "response": "...",
+  "conversation_id": "user-123-session-1",
+  "locale": "en",
+  "model": "free",
   "timestamp": "2024-01-01T00:00:00.000Z"
 }
+```
+
+**Example (English):**
+```bash
+curl -X POST http://localhost:3000/api/rag/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "What information do you have?",
+    "conversation_id": "user-rag-1",
+    "locale": "en",
+    "model": "free"
+  }'
+```
+
+**Example (Portuguese):**
+```bash
+curl -X POST http://localhost:3000/api/rag/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "O que você sabe sobre isso?",
+    "conversation_id": "user-rag-1",
+    "locale": "pt",
+    "model": "free"
+  }'
 ```
 
 ---
