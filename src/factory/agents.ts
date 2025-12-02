@@ -2,8 +2,12 @@ import { createAgent } from "langchain";
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import type { StructuredToolInterface } from "@langchain/core/tools";
 import { getDefaultModel } from "../config/models.ts";
-import { createWebSearchTool, createNewsSearchTool, createURLFetchTool } from "../tools/web-search.ts";
-import { createMeetingTool, checkAvailabilityTool, listMeetingsTool } from "../tools/google-calendar.ts";
+import {
+    createWebSearchTool,
+    createNewsSearchTool,
+    createURLFetchTool,
+} from "../tools/web-search.ts";
+
 import { PGVectorRAG } from "../tools/rag-pgvector.ts";
 import type { RedisChatMessageHistory } from "../memory/redis.ts";
 
@@ -27,6 +31,7 @@ export function createConversationalAgent(config: AgentConfig = {}) {
     return createAgent({
         model,
         tools: config.tools || [],
+        systemPrompt: config.systemPrompt,
     });
 }
 
@@ -47,6 +52,7 @@ export function createWebAgent(config: AgentConfig = {}) {
     return createAgent({
         model,
         tools,
+        systemPrompt: config.systemPrompt,
     });
 }
 
@@ -66,26 +72,7 @@ export function createRAGAgent(rag: PGVectorRAG, config: AgentConfig = {}) {
     return createAgent({
         model,
         tools,
-    });
-}
-
-/**
- * Create a task automation agent
- * Can schedule meetings, check calendar, etc.
- */
-export function createTaskAgent(config: AgentConfig = {}) {
-    const model = config.model || getDefaultModel();
-
-    const tools = [
-        createMeetingTool(),
-        checkAvailabilityTool(),
-        listMeetingsTool(),
-        ...(config.tools || []),
-    ];
-
-    return createAgent({
-        model,
-        tools,
+        systemPrompt: config.systemPrompt,
     });
 }
 
@@ -104,10 +91,6 @@ export function createFullAgent(rag: PGVectorRAG, config: AgentConfig = {}) {
         // RAG tools
         rag.createSearchTool(),
         rag.createAddDocumentTool(),
-        // Task tools
-        createMeetingTool(),
-        checkAvailabilityTool(),
-        listMeetingsTool(),
         // Additional custom tools
         ...(config.tools || []),
     ];
@@ -115,6 +98,7 @@ export function createFullAgent(rag: PGVectorRAG, config: AgentConfig = {}) {
     return createAgent({
         model,
         tools,
+        systemPrompt: config.systemPrompt,
     });
 }
 
@@ -122,14 +106,15 @@ export function createFullAgent(rag: PGVectorRAG, config: AgentConfig = {}) {
  * Create a Discord bot agent
  * Optimized for Discord interactions with web and task capabilities
  */
-export function createDiscordAgent(rag?: PGVectorRAG, config: AgentConfig = {}) {
+export function createDiscordAgent(
+    rag?: PGVectorRAG,
+    config: AgentConfig = {},
+) {
     const model = config.model || getDefaultModel();
 
     const tools = [
         createWebSearchTool(),
         createURLFetchTool(),
-        createMeetingTool(),
-        listMeetingsTool(),
         ...(config.tools || []),
     ];
 
@@ -141,5 +126,6 @@ export function createDiscordAgent(rag?: PGVectorRAG, config: AgentConfig = {}) 
     return createAgent({
         model,
         tools,
+        systemPrompt: config.systemPrompt,
     });
 }

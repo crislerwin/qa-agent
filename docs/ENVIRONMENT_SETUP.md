@@ -7,12 +7,14 @@ This guide will help you configure all the environment variables needed for the 
 ### AI Models (Choose at least one)
 
 #### Option 1: OpenRouter (Recommended - has free models)
+
 ```bash
 OPEN_ROUTER_API_KEY=your_api_key_here
-OPEN_ROUTER_MODEL=google/gemini-flash-1.5  # Optional, defaults to free model
+OPEN_ROUTER_MODEL=x-ai/grok-4.1-fast:free # Optional, defaults to free model
 ```
 
 **How to get:**
+
 1. Go to [https://openrouter.ai](https://openrouter.ai)
 2. Sign up for a free account
 3. Go to Settings → API Keys
@@ -20,6 +22,7 @@ OPEN_ROUTER_MODEL=google/gemini-flash-1.5  # Optional, defaults to free model
 5. Copy the key to your `.env` file
 
 **Free models available:**
+
 - `google/gemini-flash-1.5` (recommended)
 - `meta-llama/llama-3.1-8b-instruct:free`
 - `qwen/qwen-2.5-7b-instruct:free`
@@ -27,12 +30,14 @@ OPEN_ROUTER_MODEL=google/gemini-flash-1.5  # Optional, defaults to free model
 ---
 
 #### Option 2: Google AI Studio (Gemini)
+
 ```bash
 GOOGLE_AI_STUDIO_API_KEY=your_api_key_here
 GEMINI_MODEL=gemini-1.5-flash  # Optional, defaults to gemini-1.5-flash
 ```
 
 **How to get:**
+
 1. Go to [https://ai.google.dev](https://ai.google.dev)
 2. Sign in with your Google account
 3. Click "Get API Key" → "Create API key"
@@ -51,6 +56,7 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/agents_db
 ```
 
 **Local Setup with Docker (Recommended):**
+
 1. Make sure Docker is installed
 2. Run: `docker-compose up -d`
 3. That's it! PostgreSQL with pgvector is now running
@@ -59,6 +65,7 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/agents_db
 **See [DOCKER_SETUP.md](DOCKER_SETUP.md) for detailed Docker instructions.**
 
 **Alternative - Hosted PostgreSQL:**
+
 - Use [Supabase](https://supabase.com) (includes pgvector)
 - Use [Neon](https://neon.tech) with pgvector extension
 - Use any PostgreSQL provider and enable pgvector extension
@@ -72,6 +79,7 @@ TAVILY_API_KEY=your_api_key_here
 ```
 
 **How to get:**
+
 1. Go to [https://tavily.com](https://tavily.com)
 2. Sign up for a free account
 3. Go to your dashboard
@@ -92,6 +100,7 @@ REDIS_URL=redis://username:password@host:port
 ```
 
 **Local Setup with Docker (Recommended):**
+
 1. Make sure Docker is installed
 2. Run: `docker-compose up -d`
 3. Redis is now running on `localhost:6379`
@@ -100,6 +109,7 @@ REDIS_URL=redis://username:password@host:port
 **See [DOCKER_SETUP.md](DOCKER_SETUP.md) for detailed Docker instructions.**
 
 **Alternative - Hosted Redis:**
+
 1. Go to [https://upstash.com](https://upstash.com)
 2. Sign up for free
 3. Create a new Redis database
@@ -116,6 +126,7 @@ DISCORD_BOT_TOKEN=your_bot_token_here
 ```
 
 **How to get:**
+
 1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
 2. Click "New Application"
 3. Give it a name (e.g., "AI Agent Bot")
@@ -134,34 +145,6 @@ DISCORD_BOT_TOKEN=your_bot_token_here
 
 ---
 
-### Google Calendar/Meet (for Meeting Scheduling)
-
-```bash
-GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=your_client_secret
-GOOGLE_REDIRECT_URI=http://localhost:3000/oauth2callback
-GOOGLE_REFRESH_TOKEN=your_refresh_token
-```
-
-**How to get:**
-1. Go to [Google Cloud Console](https://console.cloud.google.com)
-2. Create a new project or select existing
-3. Enable Google Calendar API:
-   - Go to "APIs & Services" → "Enable APIs and Services"
-   - Search for "Google Calendar API"
-   - Click "Enable"
-4. Create OAuth2 credentials:
-   - Go to "APIs & Services" → "Credentials"
-   - Click "Create Credentials" → "OAuth client ID"
-   - Application type: "Web application"
-   - Add redirect URI: `http://localhost:3000/oauth2callback`
-   - Copy Client ID and Client Secret
-5. Get refresh token:
-   - Use Google OAuth2 Playground or a OAuth flow
-   - See detailed guide: [Google OAuth2 Guide](https://developers.google.com/identity/protocols/oauth2)
-
----
-
 ## Complete .env Example
 
 ```bash
@@ -169,7 +152,7 @@ GOOGLE_REFRESH_TOKEN=your_refresh_token
 
 # OpenRouter (Recommended - has free models)
 OPEN_ROUTER_API_KEY=sk-or-v1-xxxxxxxxxxxxx
-OPEN_ROUTER_MODEL=google/gemini-flash-1.5
+OPEN_ROUTER_MODEL=x-ai/grok-4.1-fast:free
 
 # OR Google AI Studio
 # GOOGLE_AI_STUDIO_API_KEY=xxxxxxxxxxxxx
@@ -192,12 +175,6 @@ TAVILY_API_KEY=tvly-xxxxxxxxxxxxx
 
 # Discord Bot
 DISCORD_BOT_TOKEN=xxxxxxxxxxxxx
-
-# Google Calendar/Meet
-GOOGLE_CLIENT_ID=xxxxxxxxxxxxx.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=xxxxxxxxxxxxx
-GOOGLE_REDIRECT_URI=http://localhost:3000/oauth2callback
-GOOGLE_REFRESH_TOKEN=xxxxxxxxxxxxx
 ```
 
 ---
@@ -207,11 +184,13 @@ GOOGLE_REFRESH_TOKEN=xxxxxxxxxxxxx
 To run the basic examples, you only need **one** AI model provider:
 
 **Option 1 - OpenRouter (Free):**
+
 ```bash
 OPEN_ROUTER_API_KEY=your_key_here
 ```
 
 **Option 2 - Google AI Studio (Free):**
+
 ```bash
 GOOGLE_AI_STUDIO_API_KEY=your_key_here
 ```
@@ -222,15 +201,14 @@ Everything else is optional and can be added as needed!
 
 ## Service Summary
 
-| Service | Required? | Setup | Used For |
-|---------|-----------|-------|----------|
-| OpenRouter | One of the model providers | ✅ Free tier | AI Model (includes free models) |
-| Google AI Studio | One of the model providers | ✅ Free tier | AI Model (Gemini) |
-| PostgreSQL + pgvector | Optional | 🐳 Docker (local) | RAG/Knowledge Base |
-| Redis | Optional | 🐳 Docker (local) | Chat Memory |
-| Tavily | Optional | ✅ Free tier | Web Search |
-| Discord | Optional | ✅ Free | Discord Bot |
-| Google Calendar | Optional | ✅ Free | Meeting Scheduling |
+| Service               | Required?                  | Setup             | Used For                        |
+| --------------------- | -------------------------- | ----------------- | ------------------------------- |
+| OpenRouter            | One of the model providers | ✅ Free tier      | AI Model (includes free models) |
+| Google AI Studio      | One of the model providers | ✅ Free tier      | AI Model (Gemini)               |
+| PostgreSQL + pgvector | Optional                   | 🐳 Docker (local) | RAG/Knowledge Base              |
+| Redis                 | Optional                   | 🐳 Docker (local) | Chat Memory                     |
+| Tavily                | Optional                   | ✅ Free tier      | Web Search                      |
+| Discord               | Optional                   | ✅ Free           | Discord Bot                     |
 
 **🐳 = Runs locally via Docker (no account needed!)**
 
@@ -243,7 +221,7 @@ Everything else is optional and can be added as needed!
 3. For RAG and Memory features:
    - Run `docker-compose up -d` (starts PostgreSQL + Redis)
    - See [DOCKER_SETUP.md](DOCKER_SETUP.md) for details
-4. Add optional API keys as needed (Tavily, Discord, Google Calendar)
+4. Add optional API keys as needed (Tavily, Discord)
 5. Run `bun install` to install dependencies
 6. Test with `bun run index.ts`
 7. Try examples in `/examples` folder
