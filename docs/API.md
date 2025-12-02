@@ -39,8 +39,7 @@ Get API information
   "version": "1.0.0",
   "endpoints": {
     "chat": "/api/chat",
-    "rag": "/api/rag",
-    "tools": "/api/tools"
+    "rag": "/api/rag"
   }
 }
 ```
@@ -247,75 +246,6 @@ curl -X DELETE http://localhost:3000/api/rag/documents
 
 ---
 
-## Tools Endpoints
-
-### POST /api/tools/meeting
-Schedule a Google Calendar meeting
-
-**Request Body:**
-```json
-{
-  "title": "Team Standup",
-  "dateTime": "2024-12-01T10:00:00Z",
-  "duration": 30,
-  "attendees": ["alice@example.com", "bob@example.com"],
-  "model": "free" // optional
-}
-```
-
-**Response:**
-```json
-{
-  "response": "...",
-  "timestamp": "2024-01-01T00:00:00.000Z"
-}
-```
-
----
-
-### POST /api/tools/availability
-Check calendar availability
-
-**Request Body:**
-```json
-{
-  "startDate": "2024-12-01",
-  "endDate": "2024-12-07",
-  "model": "free" // optional
-}
-```
-
-**Response:**
-```json
-{
-  "response": "...",
-  "timestamp": "2024-01-01T00:00:00.000Z"
-}
-```
-
----
-
-### POST /api/tools/search
-Web search using Tavily
-
-**Request Body:**
-```json
-{
-  "query": "latest TypeScript features",
-  "model": "free" // optional
-}
-```
-
-**Response:**
-```json
-{
-  "response": "...",
-  "timestamp": "2024-01-01T00:00:00.000Z"
-}
-```
-
----
-
 ## Model Options
 
 Available models for chat endpoints:
@@ -368,11 +298,6 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/agents_db
 
 # Optional: For web search
 TAVILY_API_KEY=your_key_here
-
-# Optional: For calendar
-GOOGLE_CLIENT_ID=your_client_id
-GOOGLE_CLIENT_SECRET=your_client_secret
-GOOGLE_REFRESH_TOKEN=your_refresh_token
 ```
 
 ---

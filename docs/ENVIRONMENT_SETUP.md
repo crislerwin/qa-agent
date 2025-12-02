@@ -134,34 +134,6 @@ DISCORD_BOT_TOKEN=your_bot_token_here
 
 ---
 
-### Google Calendar/Meet (for Meeting Scheduling)
-
-```bash
-GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=your_client_secret
-GOOGLE_REDIRECT_URI=http://localhost:3000/oauth2callback
-GOOGLE_REFRESH_TOKEN=your_refresh_token
-```
-
-**How to get:**
-1. Go to [Google Cloud Console](https://console.cloud.google.com)
-2. Create a new project or select existing
-3. Enable Google Calendar API:
-   - Go to "APIs & Services" → "Enable APIs and Services"
-   - Search for "Google Calendar API"
-   - Click "Enable"
-4. Create OAuth2 credentials:
-   - Go to "APIs & Services" → "Credentials"
-   - Click "Create Credentials" → "OAuth client ID"
-   - Application type: "Web application"
-   - Add redirect URI: `http://localhost:3000/oauth2callback`
-   - Copy Client ID and Client Secret
-5. Get refresh token:
-   - Use Google OAuth2 Playground or a OAuth flow
-   - See detailed guide: [Google OAuth2 Guide](https://developers.google.com/identity/protocols/oauth2)
-
----
-
 ## Complete .env Example
 
 ```bash
@@ -192,12 +164,6 @@ TAVILY_API_KEY=tvly-xxxxxxxxxxxxx
 
 # Discord Bot
 DISCORD_BOT_TOKEN=xxxxxxxxxxxxx
-
-# Google Calendar/Meet
-GOOGLE_CLIENT_ID=xxxxxxxxxxxxx.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=xxxxxxxxxxxxx
-GOOGLE_REDIRECT_URI=http://localhost:3000/oauth2callback
-GOOGLE_REFRESH_TOKEN=xxxxxxxxxxxxx
 ```
 
 ---
@@ -230,7 +196,6 @@ Everything else is optional and can be added as needed!
 | Redis | Optional | 🐳 Docker (local) | Chat Memory |
 | Tavily | Optional | ✅ Free tier | Web Search |
 | Discord | Optional | ✅ Free | Discord Bot |
-| Google Calendar | Optional | ✅ Free | Meeting Scheduling |
 
 **🐳 = Runs locally via Docker (no account needed!)**
 
@@ -243,7 +208,7 @@ Everything else is optional and can be added as needed!
 3. For RAG and Memory features:
    - Run `docker-compose up -d` (starts PostgreSQL + Redis)
    - See [DOCKER_SETUP.md](DOCKER_SETUP.md) for details
-4. Add optional API keys as needed (Tavily, Discord, Google Calendar)
+4. Add optional API keys as needed (Tavily, Discord)
 5. Run `bun install` to install dependencies
 6. Test with `bun run index.ts`
 7. Try examples in `/examples` folder

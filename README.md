@@ -11,7 +11,6 @@ Perfect for building Discord bots, task automation agents, RAG systems, and conv
 - 💰 **Free Model Support**: Includes free models (Gemini Flash, Llama, Qwen)
 - 🎯 **Ready-to-use Tools**:
   - Web search (Tavily API)
-  - Google Calendar/Meet scheduling
   - RAG with PostgreSQL + pgvector
   - Redis-based chat memory
   - **File upload & embeddings** (txt, md, json, csv)
@@ -182,7 +181,6 @@ fetch("http://localhost:3000/api/files/upload", {
 - `createConversationalAgent()` - Simple chat agent
 - `createWebAgent()` - Web search + URL fetching
 - `createRAGAgent()` - Knowledge base powered
-- `createTaskAgent()` - Calendar/meeting scheduling
 - `createDiscordAgent()` - Optimized for Discord
 - `createFullAgent()` - All features combined
 
@@ -211,12 +209,6 @@ ModelPresets.geminiPro(); // Gemini Pro
 - `createWebSearchTool()` - Tavily web search
 - `createNewsSearchTool()` - Latest news search
 - `createURLFetchTool()` - Fetch content from URLs
-
-### Task Automation
-
-- `createMeetingTool()` - Schedule Google Meet meetings
-- `checkAvailabilityTool()` - Check calendar availability
-- `listMeetingsTool()` - List upcoming meetings
 
 ### RAG (Knowledge Base)
 
@@ -393,7 +385,6 @@ This boilerplate is perfect for:
 
 - 💬 **Discord/Slack bots** with AI capabilities
 - 🌐 **REST API backends** for AI-powered apps
-- 📅 **Meeting scheduling assistants**
 - 🔍 **Research agents** with web search
 - 📚 **Documentation Q&A** with RAG
 - 🤝 **Customer support** bots
