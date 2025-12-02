@@ -70,6 +70,7 @@ export function createRAGAgent(rag: PGVectorRAG, config: AgentConfig = {}) {
     return createAgent({
         model,
         tools,
+        systemPrompt: config.systemPrompt,
     });
 }
 
@@ -95,6 +96,7 @@ export function createFullAgent(rag: PGVectorRAG, config: AgentConfig = {}) {
     return createAgent({
         model,
         tools,
+        systemPrompt: config.systemPrompt,
     });
 }
 
@@ -122,5 +124,6 @@ export function createDiscordAgent(
     return createAgent({
         model,
         tools,
+        systemPrompt: config.systemPrompt,
     });
 }
