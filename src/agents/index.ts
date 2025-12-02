@@ -14,7 +14,6 @@ export * from "../config/models.ts";
 
 // Re-export tools
 export * from "../tools/web-search.ts";
-export * from "../tools/google-calendar.ts";
 export * from "../tools/rag-pgvector.ts";
 
 // Re-export memory
