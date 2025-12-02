@@ -31,10 +31,6 @@ COPY --from=install /temp/prod/node_modules node_modules
 COPY --from=prerelease /usr/src/app/dist/server.js server.js
 COPY --from=prerelease /usr/src/app/package.json .
 
-# Copy database initialization files and scripts
-COPY --from=prerelease /usr/src/app/docker ./docker
-COPY --from=prerelease /usr/src/app/scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-
 # Install system dependencies for Playwright, PostgreSQL client, and curl
 RUN apt-get update && apt-get install -y \
     libnss3 \
@@ -54,9 +50,15 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Make entrypoint executable and set proper ownership
+# Copy database initialization files and scripts
+COPY --from=prerelease /usr/src/app/docker ./docker
+COPY --from=prerelease /usr/src/app/scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
+# Make entrypoint executable and set proper ownership for all files
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh && \
-    chown bun:bun /usr/local/bin/docker-entrypoint.sh
+    chown bun:bun /usr/local/bin/docker-entrypoint.sh && \
+    chown -R bun:bun ./docker && \
+    chmod -R 755 ./docker
 
 # Create uploads directory with proper permissions
 RUN mkdir -p uploads && chown -R bun:bun uploads && chmod -R 755 uploads
