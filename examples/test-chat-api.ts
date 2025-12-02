@@ -8,13 +8,51 @@ const API_BASE_URL = "http://localhost:3000";
 const conversationId = `test-conversation-${Date.now()}`;
 
 /**
+ * Response types
+ */
+interface ChatResponse {
+    response: string;
+    conversation_id: string;
+    locale: string;
+    model: string;
+    timestamp: string;
+}
+
+interface HistoryResponse {
+    conversation_id: string;
+    conversation: {
+        id: number;
+        conversation_id: string;
+        user_id: string | null;
+        locale: string;
+        model: string | null;
+        message_count: number;
+        created_at: string;
+        updated_at: string;
+    } | null;
+    message_count: number;
+    messages: Array<{
+        role: string;
+        content: string;
+        created_at: string;
+    }>;
+}
+
+interface ClearResponse {
+    success: boolean;
+    conversation_id: string;
+    message: string;
+    timestamp: string;
+}
+
+/**
  * Helper function to make API calls
  */
 async function chatRequest(
     message: string,
     locale: "pt" | "en" = "en",
-    model?: string
-) {
+    model?: string,
+): Promise<ChatResponse> {
     const response = await fetch(`${API_BASE_URL}/api/chat`, {
         method: "POST",
         headers: {
@@ -38,9 +76,9 @@ async function chatRequest(
 /**
  * Get conversation history
  */
-async function getHistory() {
+async function getHistory(): Promise<HistoryResponse> {
     const response = await fetch(
-        `${API_BASE_URL}/api/chat/history/${conversationId}`
+        `${API_BASE_URL}/api/chat/history/${conversationId}`,
     );
 
     if (!response.ok) {
@@ -53,10 +91,10 @@ async function getHistory() {
 /**
  * Clear conversation history
  */
-async function clearHistory() {
+async function clearHistory(): Promise<ClearResponse> {
     const response = await fetch(
         `${API_BASE_URL}/api/chat/history/${conversationId}`,
-        { method: "DELETE" }
+        { method: "DELETE" },
     );
 
     if (!response.ok) {
@@ -69,10 +107,10 @@ async function clearHistory() {
 /**
  * Main test function
  */
-async function main() {
+async function main(): Promise<void> {
     console.log("🧪 Testing Chat API with Conversation History\n");
     console.log(`Conversation ID: ${conversationId}\n`);
-    console.log("=" .repeat(60));
+    console.log("=".repeat(60));
 
     try {
         // Test 1: First message in English
@@ -80,18 +118,14 @@ async function main() {
         const response1 = await chatRequest(
             "Hello! My name is Alice.",
             "en",
-            "free"
+            "free",
         );
         console.log("User:", "Hello! My name is Alice.");
         console.log("Assistant:", response1.response);
 
         // Test 2: Second message - should remember context
         console.log("\n📝 Test 2: Second message (should remember name)");
-        const response2 = await chatRequest(
-            "What's my name?",
-            "en",
-            "free"
-        );
+        const response2 = await chatRequest("What's my name?", "en", "free");
         console.log("User:", "What's my name?");
         console.log("Assistant:", response2.response);
 
@@ -100,10 +134,10 @@ async function main() {
         const history = await getHistory();
         console.log(`Message Count: ${history.message_count}`);
         console.log("Messages:");
-        history.messages.forEach((msg: any, index: number) => {
-            console.log(
-                `  ${index + 1}. [${msg.type}]: ${msg.content.substring(0, 100)}${msg.content.length > 100 ? "..." : ""}`
-            );
+        history.messages.forEach((msg, index) => {
+            const preview = msg.content.substring(0, 100);
+            const suffix = msg.content.length > 100 ? "..." : "";
+            console.log(`  ${index + 1}. [${msg.role}]: ${preview}${suffix}`);
         });
 
         // Test 4: Portuguese conversation
@@ -111,17 +145,19 @@ async function main() {
         const response3 = await chatRequest(
             "Qual é a capital do Brasil?",
             "pt",
-            "free"
+            "free",
         );
         console.log("User:", "Qual é a capital do Brasil?");
         console.log("Assistant:", response3.response);
 
         // Test 5: Continue in Portuguese
-        console.log("\n📝 Test 5: Continue in Portuguese (should remember context)");
+        console.log(
+            "\n📝 Test 5: Continue in Portuguese (should remember context)",
+        );
         const response4 = await chatRequest(
             "E qual é a população dessa cidade?",
             "pt",
-            "free"
+            "free",
         );
         console.log("User:", "E qual é a população dessa cidade?");
         console.log("Assistant:", response4.response);

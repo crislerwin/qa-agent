@@ -7,6 +7,7 @@ import { getRAGInstance } from "../shared-instances.ts";
 import { RAG_CHAT_SYSTEM_PROMPTS } from "../../prompts/index.ts";
 import { RedisChatMessageHistory } from "../../memory/redis.ts";
 import { ConversationDB } from "../../services/conversation-db.ts";
+import { isAIMessage } from "@langchain/core/messages";
 
 /**
  * Message request type for RAG chat
@@ -150,15 +151,10 @@ export const ragRoutes = new Elysia({ prefix: "/api/rag" })
 
                 // Build messages array with history
                 const messages = [
-                    {
-                        role: "system" as const,
-                        content: RAG_CHAT_SYSTEM_PROMPTS[locale],
-                    },
                     ...previousMessages.map((msg) => ({
-                        role:
-                            msg._getType() === "human"
-                                ? ("user" as const)
-                                : ("assistant" as const),
+                        role: isAIMessage(msg)
+                            ? ("assistant" as const)
+                            : ("user" as const),
                         content:
                             typeof msg.content === "string"
                                 ? msg.content

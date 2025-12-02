@@ -31,6 +31,7 @@ export function createConversationalAgent(config: AgentConfig = {}) {
     return createAgent({
         model,
         tools: config.tools || [],
+        systemPrompt: config.systemPrompt,
     });
 }
 
@@ -51,6 +52,7 @@ export function createWebAgent(config: AgentConfig = {}) {
     return createAgent({
         model,
         tools,
+        systemPrompt: config.systemPrompt,
     });
 }
 
