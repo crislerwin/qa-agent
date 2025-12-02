@@ -2,12 +2,15 @@ import { Elysia, t } from "elysia";
 import { createDocuments } from "../../tools/rag-pgvector.ts";
 import { clusterSemanticChunking } from "../../utils/chunking.ts";
 import { createRAGAgent } from "../../factory/agents.ts";
-import { ModelPresets, getDefaultModel } from "../../config/models.ts";
+import { getDefaultModel } from "../../config/models.ts";
 import { getRAGInstance } from "../shared-instances.ts";
 import { RAG_CHAT_SYSTEM_PROMPTS } from "../../prompts/index.ts";
 import { RedisChatMessageHistory } from "../../memory/redis.ts";
 import { ConversationDB } from "../../services/conversation-db.ts";
 import { isAIMessage } from "@langchain/core/messages";
+import { createLogger } from "../../utils/logger.ts";
+
+const logger = createLogger("rag-routes");
 
 /**
  * Message request type for RAG chat
@@ -16,26 +19,7 @@ type RAGMessageRequest = {
     message: string;
     conversation_id: string;
     locale: "pt" | "en";
-    model?: string;
 };
-
-/**
- * Get model based on model string
- */
-function getModelFromString(model?: string) {
-    if (!model) return getDefaultModel();
-
-    switch (model) {
-        case "free":
-            return ModelPresets.free();
-        case "balanced":
-            return ModelPresets.balanced();
-        case "powerful":
-            return ModelPresets.powerful();
-        default:
-            return getDefaultModel();
-    }
-}
 
 /**
  * Initialize conversation database
@@ -120,8 +104,7 @@ export const ragRoutes = new Elysia({ prefix: "/api/rag" })
     .post(
         "/chat",
         async ({ body }) => {
-            const { message, conversation_id, locale, model } =
-                body as RAGMessageRequest;
+            const { message, conversation_id, locale } = body as RAGMessageRequest;
             const rag = getRAGInstance();
 
             // Create Redis chat history for this conversation
@@ -135,17 +118,15 @@ export const ragRoutes = new Elysia({ prefix: "/api/rag" })
                 // Create or update conversation in database
                 await conversationDB.upsertConversation(
                     conversation_id,
-                    locale,
-                    model,
+                    locale
                 );
 
                 // Get conversation history
                 const previousMessages = await chatHistory.getMessages();
 
-                // Create agent with specified or default model
-                const agentModel = getModelFromString(model);
+                // Create agent with default model from environment
                 const agent = createRAGAgent(rag, {
-                    model: agentModel,
+                    model: getDefaultModel(),
                     systemPrompt: RAG_CHAT_SYSTEM_PROMPTS[locale],
                 });
 
@@ -196,11 +177,10 @@ export const ragRoutes = new Elysia({ prefix: "/api/rag" })
                     response: responseContent,
                     conversation_id,
                     locale,
-                    model: model || "default",
                     timestamp: new Date().toISOString(),
                 };
             } catch (error) {
-                console.error("RAG chat error:", error);
+                logger.error("RAG chat error:", error);
                 throw error;
             }
         },
@@ -209,7 +189,6 @@ export const ragRoutes = new Elysia({ prefix: "/api/rag" })
                 message: t.String({ minLength: 1 }),
                 conversation_id: t.String({ minLength: 1 }),
                 locale: t.Union([t.Literal("pt"), t.Literal("en")]),
-                model: t.Optional(t.String()),
             }),
         },
     )

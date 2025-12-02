@@ -3,11 +3,14 @@ import {
     createConversationalAgent,
     createWebAgent,
 } from "../../factory/agents.ts";
-import { getDefaultModel, ModelPresets } from "../../config/models.ts";
+import { getDefaultModel, getDefaultModelName } from "../../config/models.ts";
 import { RedisChatMessageHistory } from "../../memory/redis.ts";
 import { ConversationDB } from "../../services/conversation-db.ts";
 import { CHAT_SYSTEM_PROMPTS } from "../../prompts/index.ts";
 import { isAIMessage } from "@langchain/core/messages";
+import { createLogger } from "../../utils/logger.ts";
+
+const logger = createLogger("chat-routes");
 
 /**
  * Message request type
@@ -16,26 +19,7 @@ type MessageRequest = {
     message: string;
     conversation_id: string;
     locale: "pt" | "en";
-    model?: string;
 };
-
-/**
- * Get model based on model string
- */
-function getModelFromString(model?: string) {
-    if (!model) return getDefaultModel();
-
-    switch (model) {
-        case "free":
-            return ModelPresets.free();
-        case "balanced":
-            return ModelPresets.balanced();
-        case "powerful":
-            return ModelPresets.powerful();
-        default:
-            return getDefaultModel();
-    }
-}
 
 /**
  * Initialize conversation database
@@ -52,8 +36,7 @@ export const chatRoutes = new Elysia({ prefix: "/api/chat" })
     .post(
         "/",
         async ({ body }) => {
-            const { message, conversation_id, locale, model } =
-                body as MessageRequest;
+            const { message, conversation_id, locale } = body as MessageRequest;
 
             // Create Redis chat history for this conversation
             const chatHistory = new RedisChatMessageHistory(
@@ -66,16 +49,17 @@ export const chatRoutes = new Elysia({ prefix: "/api/chat" })
                 // Create or update conversation in database
                 await conversationDB.upsertConversation(
                     conversation_id,
-                    locale,
-                    model,
+                    locale
                 );
 
                 // Get conversation history
                 const previousMessages = await chatHistory.getMessages();
 
-                // Create agent with specified or default model
-                const agentModel = getModelFromString(model);
-                const agent = createConversationalAgent({ model: agentModel });
+                // Create agent with default model from environment
+                const agent = createConversationalAgent({
+                    model: getDefaultModel(),
+                    systemPrompt: CHAT_SYSTEM_PROMPTS[locale]
+                });
 
                 // Build messages array with history
                 const messages = [
@@ -124,11 +108,10 @@ export const chatRoutes = new Elysia({ prefix: "/api/chat" })
                     response: responseContent,
                     conversation_id,
                     locale,
-                    model: model || "default",
                     timestamp: new Date().toISOString(),
                 };
             } catch (error) {
-                console.error("Chat error:", error);
+                logger.error("Chat error:", error);
                 throw error;
             }
         },
@@ -137,7 +120,6 @@ export const chatRoutes = new Elysia({ prefix: "/api/chat" })
                 message: t.String({ minLength: 1 }),
                 conversation_id: t.String({ minLength: 1 }),
                 locale: t.Union([t.Literal("pt"), t.Literal("en")]),
-                model: t.Optional(t.String()),
             }),
         },
     )
@@ -147,8 +129,7 @@ export const chatRoutes = new Elysia({ prefix: "/api/chat" })
     .post(
         "/web",
         async ({ body }) => {
-            const { message, conversation_id, locale, model } =
-                body as MessageRequest;
+            const { message, conversation_id, locale } = body as MessageRequest;
 
             // Create Redis chat history for this conversation
             const chatHistory = new RedisChatMessageHistory(
@@ -161,16 +142,17 @@ export const chatRoutes = new Elysia({ prefix: "/api/chat" })
                 // Create or update conversation in database
                 await conversationDB.upsertConversation(
                     conversation_id,
-                    locale,
-                    model,
+                    locale
                 );
 
                 // Get conversation history
                 const previousMessages = await chatHistory.getMessages();
 
-                // Create agent with specified or default model
-                const agentModel = getModelFromString(model);
-                const agent = createWebAgent({ model: agentModel });
+                // Create agent with default model from environment
+                const agent = createWebAgent({
+                    model: getDefaultModel(),
+                    systemPrompt: CHAT_SYSTEM_PROMPTS[locale]
+                });
 
                 // Build messages array with history
                 const messages = [
@@ -219,11 +201,10 @@ export const chatRoutes = new Elysia({ prefix: "/api/chat" })
                     response: responseContent,
                     conversation_id,
                     locale,
-                    model: model || "default",
                     timestamp: new Date().toISOString(),
                 };
             } catch (error) {
-                console.error("Web chat error:", error);
+                logger.error("Web chat error:", error);
                 throw error;
             }
         },
@@ -232,7 +213,6 @@ export const chatRoutes = new Elysia({ prefix: "/api/chat" })
                 message: t.String({ minLength: 1 }),
                 conversation_id: t.String({ minLength: 1 }),
                 locale: t.Union([t.Literal("pt"), t.Literal("en")]),
-                model: t.Optional(t.String()),
             }),
         },
     )
@@ -258,7 +238,7 @@ export const chatRoutes = new Elysia({ prefix: "/api/chat" })
                 })),
             };
         } catch (error) {
-            console.error("Get history error:", error);
+            logger.error("Get history error:", error);
             throw error;
         }
     })
@@ -284,7 +264,7 @@ export const chatRoutes = new Elysia({ prefix: "/api/chat" })
                 timestamp: new Date().toISOString(),
             };
         } catch (error) {
-            console.error("Clear history error:", error);
+            logger.error("Clear history error:", error);
             throw error;
         }
     });

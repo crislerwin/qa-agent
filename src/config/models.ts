@@ -78,6 +78,19 @@ export function getDefaultModel(): BaseChatModel {
 }
 
 /**
+ * Get the name of the default model configured in environment variables
+ */
+export function getDefaultModelName(): string {
+    if (process.env.OPEN_ROUTER_API_KEY) {
+        return process.env.OPEN_ROUTER_MODEL || "x-ai/grok-4.1-fast:free";
+    }
+    if (process.env.GOOGLE_AI_STUDIO_API_KEY) {
+        return process.env.GEMINI_MODEL || "gemini-1.5-flash";
+    }
+    return "unknown";
+}
+
+/**
  * Model presets for common use cases
  */
 export const ModelPresets = {
