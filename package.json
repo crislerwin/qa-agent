@@ -1,52 +1,52 @@
 {
-  "name": "agentforge",
-  "module": "index.ts",
-  "type": "module",
-  "private": true,
-  "scripts": {
-    "start:dev": "bun --watch run src/api/server.ts",
-    "build": "bun build src/api/server.ts --outdir ./dist --target bun --external playwright-core",
-    "start": "bun run dist/server.js",
-    "test": "bun test",
-    "test:upload": "bun run examples/test-file-upload.ts",
-    "db:init": "bash scripts/init-db.sh",
-    "docker:build": "docker build -t crislerwintlr114/agentforge:latest .",
-    "docker:push": "docker push crislerwintlr114/agentforge:latest",
-    "docker:publish": "bun run docker:build && bun run docker:push",
-    "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f api",
-    "docker:restart": "docker-compose restart api"
-  },
-  "dependencies": {
-    "@elysiajs/cors": "^1.2.1",
-    "@elysiajs/swagger": "^1.3.1",
-    "@langchain/community": "^0.3.21",
-    "@langchain/core": "^1.1.1",
-    "@langchain/google-genai": "^2.0.1",
-    "@langchain/langgraph": "^1.0.2",
-    "@langchain/openai": "^1.1.3",
-    "@mozilla/readability": "^0.6.0",
-    "adze": "^2.2.5",
-    "discord.js": "^14.17.3",
-    "elysia": "^1.2.19",
-    "googleapis": "^144.0.0",
-    "gpt-tokenizer": "^3.4.0",
-    "ioredis": "^5.4.1",
-    "jsdom": "22.1.0",
-    "langchain": "^1.1.2",
-    "pg": "^8.13.1",
-    "playwright-core": "^1.57.0",
-    "turndown": "^7.2.2",
-    "zod": "^4.1.13"
-  },
-  "devDependencies": {
-    "@types/bun": "latest",
-    "@types/jsdom": "21.1.6",
-    "@types/pg": "^8.11.10",
-    "@types/turndown": "^5.0.6"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  }
+    "name": "agentforge",
+    "module": "index.ts",
+    "type": "module",
+    "private": true,
+    "scripts": {
+        "dev": "bun --watch run src/api/server.ts",
+        "build": "bun build src/api/server.ts --outdir ./dist --target bun --external playwright-core",
+        "start": "bun run dist/server.js",
+        "test": "bun test",
+        "test:upload": "bun run examples/test-file-upload.ts",
+        "db:init": "bash scripts/init-db.sh",
+        "docker:build": "docker build -t crislerwintlr114/agentforge:latest .",
+        "docker:push": "docker push crislerwintlr114/agentforge:latest",
+        "docker:publish": "bun run docker:build && bun run docker:push",
+        "docker:up": "docker-compose up -d",
+        "docker:down": "docker-compose down",
+        "docker:logs": "docker-compose logs -f api",
+        "docker:restart": "docker-compose restart api"
+    },
+    "dependencies": {
+        "@elysiajs/cors": "^1.2.1",
+        "@elysiajs/swagger": "^1.3.1",
+        "@langchain/community": "^0.3.21",
+        "@langchain/core": "^1.1.1",
+        "@langchain/google-genai": "^2.0.1",
+        "@langchain/langgraph": "^1.0.2",
+        "@langchain/openai": "^1.1.3",
+        "@mozilla/readability": "^0.6.0",
+        "adze": "^2.2.5",
+        "discord.js": "^14.17.3",
+        "elysia": "^1.2.19",
+        "googleapis": "^144.0.0",
+        "gpt-tokenizer": "^3.4.0",
+        "ioredis": "^5.4.1",
+        "jsdom": "22.1.0",
+        "langchain": "^1.1.2",
+        "pg": "^8.13.1",
+        "playwright-core": "^1.57.0",
+        "turndown": "^7.2.2",
+        "zod": "^4.1.13"
+    },
+    "devDependencies": {
+        "@types/bun": "latest",
+        "@types/jsdom": "21.1.6",
+        "@types/pg": "^8.11.10",
+        "@types/turndown": "^5.0.6"
+    },
+    "peerDependencies": {
+        "typescript": "^5"
+    }
 }
