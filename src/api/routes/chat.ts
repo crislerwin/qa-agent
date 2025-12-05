@@ -3,7 +3,7 @@ import {
   createConversationalAgent,
   createFullAgent,
 } from "../../factory/agents.ts";
-import { getDefaultModel, getDefaultModelName } from "../../config/models.ts";
+import { getDefaultModel } from "../../config/models.ts";
 import { RedisChatMessageHistory } from "../../memory/redis.ts";
 import { ConversationDB } from "../../services/conversation-db.ts";
 import { UNIFIED_CHAT_SYSTEM_PROMPTS } from "../../prompts/index.ts";

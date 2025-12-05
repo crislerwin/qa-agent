@@ -9,12 +9,15 @@ services:
     ipc: host
     env_file:
       - .env
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
       # API Configuration
       - API_PORT=8000
       - API_HOST=0.0.0.0
-      # Database (use external PostgreSQL)
-      - DATABASE_URL=${DATABASE_URL}
+      # Database (Updated to point to the internal 'db' service)
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/agents_db
       # Redis (use external Redis)
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
@@ -39,5 +42,26 @@ services:
       start_period: 40s
     restart: unless-stopped
 
-volumes:
-  uploads_data:
+  # --- NEW PGVECTOR SERVICE (only for development) ---
+#   db:
+#     image: pgvector/pgvector:pg16
+#     container_name: agents-db
+#     ports:
+#       - "5432:5432" # Expose to host if you want to connect via local psql/TablePlus
+#     environment:
+#       - POSTGRES_USER=postgres
+#       - POSTGRES_PASSWORD=postgres
+#       - POSTGRES_DB=agents_db
+#     volumes:
+#       - postgres_data:/var/lib/postgresql/data
+#     healthcheck:
+#       test: ["CMD-SHELL", "pg_isready -U postgres -d agents_db"]
+#       interval: 5s
+#       timeout: 5s
+#       retries: 5
+#     restart: unless-stopped
+
+# volumes:
+#   uploads_data:
+#   postgres_data: # Persist DB data
+
