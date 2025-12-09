@@ -34,6 +34,21 @@ export class ConversationDB {
         model?: string,
         userId?: string,
     ): Promise<Conversation> {
+        // Build the conflict update set dynamically
+        const conflictSet: {
+            updatedAt: ReturnType<typeof sql>;
+            locale: string;
+            model?: string;
+        } = {
+            updatedAt: sql`NOW()`,
+            locale,
+        };
+
+        // Only update model if provided
+        if (model !== undefined) {
+            conflictSet.model = model;
+        }
+
         const [result] = await this.db
             .insert(conversations)
             .values({
@@ -45,11 +60,7 @@ export class ConversationDB {
             })
             .onConflictDoUpdate({
                 target: conversations.conversationId,
-                set: {
-                    updatedAt: sql`NOW()`,
-                    model: sql`COALESCE(${model}, ${conversations.model})`,
-                    locale,
-                },
+                set: conflictSet,
             })
             .returning();
 

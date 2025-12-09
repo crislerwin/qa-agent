@@ -1,20 +1,23 @@
 import type { Elysia } from "elysia";
 import { createLogger } from "../../utils/logger.ts";
+import type { RequestStore } from "../types/store";
 
 const logger = createLogger("request");
 
 /**
  * Request logging middleware
- * Logs incoming requests with origin, IP, method, path, and response time
+ * Logs incoming requests with origin, IP, method, path, response time, and trace information
  */
 export const requestLogger = (app: Elysia) => {
   return app
-    .onRequest(({ request, store }) => {
+    .onRequest(({ store }) => {
+      const typedStore = store as RequestStore;
       // Store request start time
-      (store as any).startTime = Date.now();
+      typedStore.startTime = Date.now();
     })
     .onAfterHandle(({ request, set, store }) => {
-      const startTime = (store as any).startTime || Date.now();
+      const typedStore = store as RequestStore;
+      const startTime = typedStore.startTime || Date.now();
       const duration = Date.now() - startTime;
 
       // Extract request metadata
@@ -31,7 +34,10 @@ export const requestLogger = (app: Elysia) => {
         request.headers.get("x-real-ip") ||
         "unknown";
 
-      // Log the request
+      // Extract trace information
+      const { correlationId, traceId, spanId } = typedStore;
+
+      // Log the request with trace information
       logger.info({
         type: "request",
         method,
@@ -41,6 +47,9 @@ export const requestLogger = (app: Elysia) => {
         userAgent,
         status: set.status || 200,
         duration: `${duration}ms`,
+        correlationId,
+        traceId,
+        spanId,
         timestamp: new Date().toISOString(),
       });
     });

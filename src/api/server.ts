@@ -1,3 +1,7 @@
+// Initialize OpenTelemetry FIRST (before any other imports that use instrumented libraries)
+import { getOrInitTelemetry } from "../config/telemetry.ts";
+getOrInitTelemetry();
+
 import { Elysia } from "elysia";
 import { swagger } from "@elysiajs/swagger";
 import { cors } from "@elysiajs/cors";
@@ -8,6 +12,7 @@ import { fileRoutes } from "./routes/files.ts";
 import { scraperRoutes } from "./routes/scraper.ts";
 import { errorHandler } from "./middleware/error-handler.ts";
 import { requestLogger } from "./middleware/request-logger.ts";
+import { correlationId } from "./middleware/correlation-id.ts";
 import { createLogger } from "../utils/logger.ts";
 
 const logger = createLogger("server");
@@ -70,6 +75,7 @@ export function createAPIServer(config: APIServerConfig = {}) {
         ...(config.enableCors !== false ? {} : { origin: false }),
       })
     )
+    .use(correlationId)
     .use(requestLogger)
     .use(errorHandler)
     .get("/", () => ({
