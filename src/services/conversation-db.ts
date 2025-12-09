@@ -35,7 +35,11 @@ export class ConversationDB {
         userId?: string,
     ): Promise<Conversation> {
         // Build the conflict update set dynamically
-        const conflictSet: Record<string, any> = {
+        const conflictSet: {
+            updatedAt: ReturnType<typeof sql>;
+            locale: string;
+            model?: string;
+        } = {
             updatedAt: sql`NOW()`,
             locale,
         };
