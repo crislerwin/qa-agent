@@ -30,6 +30,10 @@ FROM base AS release
 COPY --from=install /temp/prod/node_modules node_modules
 COPY --from=prerelease /usr/src/app/dist/server.js server.js
 COPY --from=prerelease /usr/src/app/package.json .
+COPY --from=prerelease /usr/src/app/src ./src
+COPY --from=prerelease /usr/src/app/drizzle ./drizzle
+COPY --from=prerelease /usr/src/app/drizzle.config.ts .
+COPY --from=prerelease /usr/src/app/scripts ./scripts
 
 # Install system dependencies for Playwright, PostgreSQL client, and curl
 RUN apt-get update && apt-get install -y \

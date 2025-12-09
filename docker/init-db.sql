@@ -1,59 +1,10 @@
--- Enable pgvector extension
+-- PostgreSQL Database Initialization
+-- This script runs only on the first database creation
+-- Tables are now managed by Drizzle ORM migrations (see drizzle/ folder)
+
+-- Enable pgvector extension for vector similarity search
 CREATE EXTENSION IF NOT EXISTS vector;
 
--- Create documents table for RAG
-CREATE TABLE IF NOT EXISTS documents (
-    id SERIAL PRIMARY KEY,
-    content TEXT NOT NULL,
-    metadata JSONB DEFAULT '{}',
-    embedding vector(1536),
-    created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Create index for vector similarity search
-CREATE INDEX IF NOT EXISTS documents_embedding_idx ON documents
-USING ivfflat (embedding vector_cosine_ops)
-WITH (lists = 100);
-
--- Create index for metadata queries
-CREATE INDEX IF NOT EXISTS documents_metadata_idx ON documents USING GIN (metadata);
-
--- Grant permissions
-GRANT ALL PRIVILEGES ON TABLE documents TO postgres;
-GRANT ALL PRIVILEGES ON SEQUENCE documents_id_seq TO postgres;
-
--- Create conversations table to track user conversations
-CREATE TABLE IF NOT EXISTS conversations (
-    id SERIAL PRIMARY KEY,
-    conversation_id VARCHAR(255) NOT NULL UNIQUE,
-    user_id VARCHAR(255),
-    locale VARCHAR(10) NOT NULL,
-    model VARCHAR(100),
-    message_count INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- Create messages table to store individual messages
-CREATE TABLE IF NOT EXISTS messages (
-    id SERIAL PRIMARY KEY,
-    conversation_id VARCHAR(255) NOT NULL,
-    role VARCHAR(50) NOT NULL,
-    content TEXT NOT NULL,
-    metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMP DEFAULT NOW(),
-    FOREIGN KEY (conversation_id) REFERENCES conversations(conversation_id) ON DELETE CASCADE
-);
-
--- Create indexes for better query performance
-CREATE INDEX IF NOT EXISTS conversations_conversation_id_idx ON conversations(conversation_id);
-CREATE INDEX IF NOT EXISTS conversations_user_id_idx ON conversations(user_id);
-CREATE INDEX IF NOT EXISTS conversations_created_at_idx ON conversations(created_at);
-CREATE INDEX IF NOT EXISTS messages_conversation_id_idx ON messages(conversation_id);
-CREATE INDEX IF NOT EXISTS messages_created_at_idx ON messages(created_at);
-
--- Grant permissions
-GRANT ALL PRIVILEGES ON TABLE conversations TO postgres;
-GRANT ALL PRIVILEGES ON SEQUENCE conversations_id_seq TO postgres;
-GRANT ALL PRIVILEGES ON TABLE messages TO postgres;
-GRANT ALL PRIVILEGES ON SEQUENCE messages_id_seq TO postgres;
+-- Note: Table creation is handled by Drizzle migrations
+-- The API container will automatically run migrations on startup
+-- See: scripts/run-migrations.ts

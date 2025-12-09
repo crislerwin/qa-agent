@@ -29,16 +29,27 @@ if [ -n "$DATABASE_URL" ]; then
         sleep 2
     done
 
-    # Run initialization if init-db.sql exists
+    # Run pgvector extension setup
     if [ -f "/usr/src/app/docker/init-db.sql" ]; then
-        echo "🔧 Running database initialization..."
+        echo "🔌 Ensuring pgvector extension is enabled..."
         if psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f /usr/src/app/docker/init-db.sql 2>&1 | grep -v "already exists"; then
-            echo "✨ Database initialized successfully!"
+            echo "✅ pgvector extension ready!"
         else
-            echo "ℹ️  Database already initialized (this is normal)"
+            echo "✅ pgvector extension already enabled"
+        fi
+    fi
+
+    # Run Drizzle migrations
+    if [ -f "/usr/src/app/scripts/run-migrations.ts" ]; then
+        echo "🗄️  Running Drizzle ORM migrations..."
+        if bun run /usr/src/app/scripts/run-migrations.ts; then
+            echo "✅ Database migrations completed!"
+        else
+            echo "❌ Migration failed! Check logs above."
+            exit 1
         fi
     else
-        echo "⚠️  No init-db.sql found, skipping initialization"
+        echo "⚠️  No migration script found, skipping migrations"
     fi
 else
     echo "ℹ️  No DATABASE_URL set, skipping database initialization"
