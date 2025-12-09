@@ -10,6 +10,10 @@
         "test": "bun test",
         "test:upload": "bun run examples/test-file-upload.ts",
         "db:init": "bash scripts/init-db.sh",
+        "db:generate": "drizzle-kit generate",
+        "db:migrate": "drizzle-kit migrate",
+        "db:push": "drizzle-kit push",
+        "db:studio": "drizzle-kit studio",
         "docker:build": "docker build -t crislerwintlr114/agentforge:latest .",
         "docker:push": "docker push crislerwintlr114/agentforge:latest",
         "docker:publish": "bun run docker:build && bun run docker:push",
@@ -29,6 +33,7 @@
         "@mozilla/readability": "^0.6.0",
         "adze": "^2.2.5",
         "discord.js": "^14.17.3",
+        "drizzle-orm": "^0.45.0",
         "elysia": "^1.2.19",
         "googleapis": "^144.0.0",
         "gpt-tokenizer": "^3.4.0",
@@ -37,6 +42,7 @@
         "langchain": "^1.1.2",
         "pg": "^8.13.1",
         "playwright-core": "^1.57.0",
+        "postgres": "^3.4.7",
         "turndown": "^7.2.2",
         "zod": "^4.1.13"
     },
@@ -44,7 +50,8 @@
         "@types/bun": "latest",
         "@types/jsdom": "21.1.6",
         "@types/pg": "^8.11.10",
-        "@types/turndown": "^5.0.6"
+        "@types/turndown": "^5.0.6",
+        "drizzle-kit": "^0.31.8"
     },
     "peerDependencies": {
         "typescript": "^5"

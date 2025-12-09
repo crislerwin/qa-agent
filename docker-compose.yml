@@ -42,26 +42,27 @@ services:
       start_period: 40s
     restart: unless-stopped
 
-  # --- NEW PGVECTOR SERVICE (only for development) ---
-#   db:
-#     image: pgvector/pgvector:pg16
-#     container_name: agents-db
-#     ports:
-#       - "5432:5432" # Expose to host if you want to connect via local psql/TablePlus
-#     environment:
-#       - POSTGRES_USER=postgres
-#       - POSTGRES_PASSWORD=postgres
-#       - POSTGRES_DB=agents_db
-#     volumes:
-#       - postgres_data:/var/lib/postgresql/data
-#     healthcheck:
-#       test: ["CMD-SHELL", "pg_isready -U postgres -d agents_db"]
-#       interval: 5s
-#       timeout: 5s
-#       retries: 5
-#     restart: unless-stopped
+  # --- PGVECTOR SERVICE (for development) ---
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: agents-db
+    ports:
+      - "5432:5432" # Expose to host if you want to connect via local psql/TablePlus
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=agents_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d agents_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
-# volumes:
-#   uploads_data:
-#   postgres_data: # Persist DB data
+volumes:
+  uploads_data:
+  postgres_data: # Persist DB data
 

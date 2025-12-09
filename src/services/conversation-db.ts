@@ -1,44 +1,28 @@
-import { Pool } from "pg";
-
-/**
- * Conversation data structure
- */
-export interface Conversation {
-    id: number;
-    conversation_id: string;
-    user_id?: string;
-    locale: string;
-    model?: string;
-    message_count: number;
-    created_at: Date;
-    updated_at: Date;
-}
-
-/**
- * Message data structure
- */
-export interface Message {
-    id: number;
-    conversation_id: string;
-    role: "user" | "assistant" | "system";
-    content: string;
-    metadata?: Record<string, any>;
-    created_at: Date;
-}
+import { eq, desc, sql, and, lt } from "drizzle-orm";
+import { getDb, conversations, messages } from "../db/client";
+import type {
+    Conversation,
+    Message,
+    InsertConversation,
+    InsertMessage,
+} from "../db/client";
 
 /**
  * Database service for managing conversations and messages
  */
 export class ConversationDB {
-    private pool: Pool;
+    private db: ReturnType<typeof getDb>;
 
     constructor(connectionString?: string) {
-        this.pool = new Pool({
-            connectionString:
-                connectionString ||
-                process.env.DATABASE_URL ||
-                "postgresql://postgres:postgres@localhost:5432/agents_db",
-        });
+        // For now, we'll use the singleton db instance
+        // If custom connection string is needed, we could create a new instance
+        this.db = getDb();
+
+        if (connectionString) {
+            console.warn(
+                "Custom connection string provided but using singleton db instance. Consider refactoring if multiple connections are needed.",
+            );
+        }
     }
 
     /**
@@ -50,24 +34,26 @@ export class ConversationDB {
         model?: string,
         userId?: string,
     ): Promise<Conversation> {
-        const query = `
-            INSERT INTO conversations (conversation_id, user_id, locale, model, message_count, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, 0, NOW(), NOW())
-            ON CONFLICT (conversation_id)
-            DO UPDATE SET
-                updated_at = NOW(),
-                model = COALESCE($4, conversations.model),
-                locale = $3
-            RETURNING *
-        `;
+        const [result] = await this.db
+            .insert(conversations)
+            .values({
+                conversationId,
+                userId,
+                locale,
+                model,
+                messageCount: 0,
+            })
+            .onConflictDoUpdate({
+                target: conversations.conversationId,
+                set: {
+                    updatedAt: sql`NOW()`,
+                    model: sql`COALESCE(${model}, ${conversations.model})`,
+                    locale,
+                },
+            })
+            .returning();
 
-        const result = await this.pool.query(query, [
-            conversationId,
-            userId,
-            locale,
-            model,
-        ]);
-        return result.rows[0];
+        return result!;
     }
 
     /**
@@ -76,27 +62,24 @@ export class ConversationDB {
     async getConversation(
         conversationId: string,
     ): Promise<Conversation | null> {
-        const query = `
-            SELECT * FROM conversations
-            WHERE conversation_id = $1
-        `;
+        const [result] = await this.db
+            .select()
+            .from(conversations)
+            .where(eq(conversations.conversationId, conversationId))
+            .limit(1);
 
-        const result = await this.pool.query(query, [conversationId]);
-        return result.rows[0] || null;
+        return result || null;
     }
 
     /**
      * Get conversations by user ID
      */
     async getConversationsByUser(userId: string): Promise<Conversation[]> {
-        const query = `
-            SELECT * FROM conversations
-            WHERE user_id = $1
-            ORDER BY updated_at DESC
-        `;
-
-        const result = await this.pool.query(query, [userId]);
-        return result.rows;
+        return this.db
+            .select()
+            .from(conversations)
+            .where(eq(conversations.userId, userId))
+            .orderBy(desc(conversations.updatedAt));
     }
 
     /**
@@ -108,44 +91,29 @@ export class ConversationDB {
         content: string,
         metadata?: Record<string, any>,
     ): Promise<Message> {
-        const client = await this.pool.connect();
-
-        try {
-            await client.query("BEGIN");
-
+        return this.db.transaction(async (tx) => {
             // Insert message
-            const insertQuery = `
-                INSERT INTO messages (conversation_id, role, content, metadata, created_at)
-                VALUES ($1, $2, $3, $4, NOW())
-                RETURNING *
-            `;
-
-            const messageResult = await client.query(insertQuery, [
-                conversationId,
-                role,
-                content,
-                metadata ? JSON.stringify(metadata) : "{}",
-            ]);
+            const [message] = await tx
+                .insert(messages)
+                .values({
+                    conversationId,
+                    role,
+                    content,
+                    metadata: metadata || {},
+                })
+                .returning();
 
             // Update message count and updated_at
-            const updateQuery = `
-                UPDATE conversations
-                SET message_count = message_count + 1,
-                    updated_at = NOW()
-                WHERE conversation_id = $1
-            `;
+            await tx
+                .update(conversations)
+                .set({
+                    messageCount: sql`${conversations.messageCount} + 1`,
+                    updatedAt: sql`NOW()`,
+                })
+                .where(eq(conversations.conversationId, conversationId));
 
-            await client.query(updateQuery, [conversationId]);
-
-            await client.query("COMMIT");
-
-            return messageResult.rows[0];
-        } catch (error) {
-            await client.query("ROLLBACK");
-            throw error;
-        } finally {
-            client.release();
-        }
+            return message!;
+        });
     }
 
     /**
@@ -155,22 +123,17 @@ export class ConversationDB {
         conversationId: string,
         limit?: number,
     ): Promise<Message[]> {
-        const query = limit
-            ? `
-                SELECT * FROM messages
-                WHERE conversation_id = $1
-                ORDER BY created_at ASC
-                LIMIT $2
-            `
-            : `
-                SELECT * FROM messages
-                WHERE conversation_id = $1
-                ORDER BY created_at ASC
-            `;
+        const query = this.db
+            .select()
+            .from(messages)
+            .where(eq(messages.conversationId, conversationId))
+            .orderBy(messages.createdAt);
 
-        const params = limit ? [conversationId, limit] : [conversationId];
-        const result = await this.pool.query(query, params);
-        return result.rows;
+        if (limit) {
+            return query.limit(limit);
+        }
+
+        return query;
     }
 
     /**
@@ -180,75 +143,86 @@ export class ConversationDB {
         conversationId: string,
         count: number,
     ): Promise<Message[]> {
-        const query = `
-            SELECT * FROM (
-                SELECT * FROM messages
-                WHERE conversation_id = $1
-                ORDER BY created_at DESC
-                LIMIT $2
-            ) AS recent_messages
-            ORDER BY created_at ASC
-        `;
+        const results = await this.db
+            .select()
+            .from(messages)
+            .where(eq(messages.conversationId, conversationId))
+            .orderBy(desc(messages.createdAt))
+            .limit(count);
 
-        const result = await this.pool.query(query, [conversationId, count]);
-        return result.rows;
+        // Reverse to get chronological order
+        return results.reverse();
     }
 
     /**
      * Delete a conversation and all its messages
      */
     async deleteConversation(conversationId: string): Promise<void> {
-        const query = `
-            DELETE FROM conversations
-            WHERE conversation_id = $1
-        `;
-
-        await this.pool.query(query, [conversationId]);
+        await this.db
+            .delete(conversations)
+            .where(eq(conversations.conversationId, conversationId));
     }
 
     /**
      * Delete old conversations (older than specified days)
      */
     async deleteOldConversations(daysOld: number): Promise<number> {
-        const query = `
-            DELETE FROM conversations
-            WHERE updated_at < NOW() - INTERVAL '${daysOld} days'
-        `;
+        const result = await this.db
+            .delete(conversations)
+            .where(
+                lt(
+                    conversations.updatedAt,
+                    sql`NOW() - INTERVAL '${sql.raw(daysOld.toString())} days'`,
+                ),
+            );
 
-        const result = await this.pool.query(query);
-        return result.rowCount || 0;
+        return result.length || 0;
     }
 
     /**
      * Get conversation count by user
      */
     async getConversationCount(userId?: string): Promise<number> {
-        const query = userId
-            ? `SELECT COUNT(*) FROM conversations WHERE user_id = $1`
-            : `SELECT COUNT(*) FROM conversations`;
+        if (userId) {
+            const result = await this.db
+                .select({ count: sql<number>`count(*)` })
+                .from(conversations)
+                .where(eq(conversations.userId, userId));
 
-        const params = userId ? [userId] : [];
-        const result = await this.pool.query(query, params);
-        return parseInt(result.rows[0].count);
+            return Number(result[0]?.count || 0);
+        }
+
+        const result = await this.db
+            .select({ count: sql<number>`count(*)` })
+            .from(conversations);
+
+        return Number(result[0]?.count || 0);
     }
 
     /**
      * Get message count for a conversation
      */
     async getMessageCount(conversationId: string): Promise<number> {
-        const query = `
-            SELECT message_count FROM conversations
-            WHERE conversation_id = $1
-        `;
+        const [result] = await this.db
+            .select({ messageCount: conversations.messageCount })
+            .from(conversations)
+            .where(eq(conversations.conversationId, conversationId))
+            .limit(1);
 
-        const result = await this.pool.query(query, [conversationId]);
-        return result.rows[0]?.message_count || 0;
+        return result?.messageCount || 0;
     }
 
     /**
      * Close database connection
+     * Note: With the singleton pattern, this might not be needed
+     * but keeping for API compatibility
      */
     async close(): Promise<void> {
-        await this.pool.end();
+        // With postgres-js and singleton pattern, connection management
+        // is handled automatically. This is a no-op for compatibility.
+        console.log("Close called on ConversationDB (no-op with singleton db)");
     }
 }
+
+// Re-export types for convenience
+export type { Conversation, Message };
