@@ -1,3 +1,7 @@
+// Initialize OpenTelemetry FIRST (before any other imports that use instrumented libraries)
+import { getOrInitTelemetry } from "../config/telemetry.ts";
+getOrInitTelemetry();
+
 import { Elysia } from "elysia";
 import { swagger } from "@elysiajs/swagger";
 import { cors } from "@elysiajs/cors";

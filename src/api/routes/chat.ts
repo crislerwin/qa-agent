@@ -140,7 +140,7 @@ export const chatRoutes = new Elysia({ prefix: "/api/chat" })
         messages: messages.map((msg) => ({
           role: msg.role,
           content: msg.content,
-          created_at: msg.created_at,
+          created_at: msg.createdAt,
         })),
       };
     } catch (error) {
