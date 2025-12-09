@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
     api:
         build: .
@@ -12,16 +10,17 @@ services:
         depends_on:
             db:
                 condition: service_healthy
+            redis:
+                condition: service_healthy
         environment:
             # API Configuration
             - API_PORT=8000
             - API_HOST=0.0.0.0
             # Database (Updated to point to the internal 'db' service)
             - DATABASE_URL=postgresql://postgres:postgres@db:5432/agents_db
-            # Redis (use external Redis)
-            - REDIS_HOST=${REDIS_HOST}
-            - REDIS_PORT=${REDIS_PORT}
-            - REDIS_URL=${REDIS_URL}
+            # Redis (internal Docker service)
+            - REDIS_HOST=redis
+            - REDIS_PORT=6379
             # AI Model API Keys
             - OPEN_ROUTER_API_KEY=${OPEN_ROUTER_API_KEY}
             - OPENAI_API_KEY=${OPENAI_API_KEY}
@@ -36,10 +35,11 @@ services:
             - OTEL_ENABLED=${OTEL_ENABLED:-false}
             - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-agentforge-api}
             - OTEL_SERVICE_VERSION=${OTEL_SERVICE_VERSION:-1.0.0}
-            - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://localhost:4318/v1/traces}
+            - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://host.docker.internal:4318/v1/traces}
             - OTEL_LOG_LEVEL=${OTEL_LOG_LEVEL:-info}
         volumes:
-            - uploads_data:/usr/src/app/uploads
+            - ./uploads:/app/uploads
+            - ./src:/usr/src/app/src
         healthcheck:
             test:
                 ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
@@ -69,6 +69,21 @@ services:
             retries: 5
         restart: unless-stopped
 
+    # --- REDIS SERVICE (for chat memory/history) ---
+    redis:
+        image: redis:7-alpine
+        container_name: agents-redis
+        ports:
+            - "6379:6379"
+        volumes:
+            - redis_data:/data
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 5s
+            timeout: 3s
+            retries: 5
+        restart: unless-stopped
+
 volumes:
-    uploads_data:
-    postgres_data: # Persist DB data
+    postgres_data:
+    redis_data:

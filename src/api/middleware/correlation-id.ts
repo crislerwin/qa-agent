@@ -1,5 +1,5 @@
 import type { Elysia } from "elysia";
-import { trace, context } from "@opentelemetry/api";
+import { getCurrentSpan, setAttributes } from "@elysiajs/opentelemetry";
 import { randomUUID } from "crypto";
 import type { RequestStore } from "../types/store";
 
@@ -23,23 +23,29 @@ export const correlationId = (app: Elysia) => {
                 request.headers.get("x-request-id") ||
                 randomUUID();
 
-            // Get OpenTelemetry trace context
-            const span = trace.getSpan(context.active());
+            // Store correlation ID
+            typedStore.correlationId = correlationId;
+        })
+        .onAfterHandle(({ set, store }) => {
+            const typedStore: RequestStore = store;
+
+            // Get OpenTelemetry trace context from the active span
+            // (created automatically by @elysiajs/opentelemetry plugin)
+            const span = getCurrentSpan();
+
             const spanContext = span?.spanContext();
 
-            // Store IDs in request store for later use
-            typedStore.correlationId = correlationId;
+            // Store trace IDs
             typedStore.traceId = spanContext?.traceId || null;
             typedStore.spanId = spanContext?.spanId || null;
 
             // Add correlation ID to the active span attributes
             if (span) {
-                span.setAttribute("correlation.id", correlationId);
-                span.setAttribute("http.request_id", correlationId);
+                setAttributes({
+                    "correlation.id": typedStore.correlationId || "",
+                    "http.request_id": typedStore.correlationId || "",
+                });
             }
-        })
-        .onAfterHandle(({ set, store }) => {
-            const typedStore: RequestStore = store;
 
             // Add trace information to response headers
             const { correlationId, traceId, spanId } = typedStore;
