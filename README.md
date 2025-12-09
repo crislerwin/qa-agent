@@ -16,6 +16,7 @@ Perfect for building Discord bots, task automation agents, RAG systems, and conv
   - **File upload & embeddings** (txt, md, json, csv)
   - **Web Scraping** (Playwright + Readability + Turndown)
 - 🐳 **Docker Setup**: PostgreSQL and Redis run locally via Docker
+- 🗄️ **Drizzle ORM**: Type-safe database queries with full TypeScript support
 - 💬 **Discord Integration**: Full Discord bot support out of the box
 - 🌐 **REST API**: Elysia-based API server with all agent endpoints
 - 🏗️ **Factory Pattern**: Quick agent creation with preset configurations
@@ -71,11 +72,16 @@ agentforge/
 │   │   ├── routes/       # API endpoints (chat, rag, tools, files)
 │   │   └── server.ts     # API server setup
 │   ├── config/           # Model configurations (OpenRouter, Gemini)
+│   ├── db/               # Database (Drizzle ORM)
+│   │   ├── schema.ts     # Table schemas with TypeScript types
+│   │   ├── client.ts     # Database connection
+│   │   └── index.ts      # Exports
 │   ├── factory/          # Agent factory functions
 │   ├── integrations/     # Discord bot integration
 │   ├── memory/           # Redis chat history
-│   ├── services/         # File processing, utilities
+│   ├── services/         # File processing, conversation DB, utilities
 │   └── tools/            # Reusable tools (web, calendar, RAG)
+├── drizzle/              # Database migrations (auto-generated)
 ├── examples/             # Complete usage examples
 │   ├── simple-chat.ts
 │   ├── web-search.ts
@@ -86,8 +92,11 @@ agentforge/
 │   ├── test-file-upload.ts
 │   └── sample-document.md
 ├── uploads/              # File upload directory (auto-created)
+├── drizzle.config.ts     # Drizzle ORM configuration
 └── docs/                 # Documentation
-    └── ENVIRONMENT_SETUP.md
+    ├── CONVERSATIONS_DATABASE.md
+    ├── ENVIRONMENT_SETUP.md
+    └── DOCKER_SETUP.md
 ```
 
 ## 🎯 Usage Examples
@@ -332,6 +341,48 @@ This will:
 - Run example searches
 - Show results with relevance scores
 
+## 🗄️ Database with Drizzle ORM
+
+This project uses **Drizzle ORM** for type-safe database operations with full TypeScript support.
+
+### Features
+
+- **Type Safety**: All queries type-checked at compile time
+- **IntelliSense**: Full autocomplete for tables and columns
+- **Migrations**: Built-in migration system
+- **Visual Tools**: Database browser with Drizzle Studio
+
+### Usage
+
+```typescript
+import { db, conversations, messages } from './src/db';
+import { eq, desc } from 'drizzle-orm';
+
+// Type-safe queries
+const conv = await db.select()
+  .from(conversations)
+  .where(eq(conversations.conversationId, 'conv-123'))
+  .limit(1);
+
+// All results are fully typed!
+```
+
+### NPM Scripts
+
+```bash
+bun run db:generate   # Generate migrations
+bun run db:push       # Push schema to database
+bun run db:studio     # Open visual database browser
+```
+
+### Tables
+
+- **conversations** - Chat conversation metadata
+- **messages** - Individual messages in conversations
+- **documents** - Vector embeddings for RAG (with pgvector)
+
+See [docs/CONVERSATIONS_DATABASE.md](docs/CONVERSATIONS_DATABASE.md) for complete documentation.
+
 ## 🕷️ Web Scraping
 
 Extract content from any URL, convert it to clean Markdown, and automatically save it to your vector database for RAG.
@@ -393,6 +444,7 @@ This boilerplate is perfect for:
 ## 📖 Documentation
 
 - [API Documentation](docs/API.md) - REST API endpoints reference
+- [Database & Drizzle ORM](docs/CONVERSATIONS_DATABASE.md) - Database schema, Drizzle ORM guide
 - [Docker Setup Guide](docs/DOCKER_SETUP.md) - PostgreSQL + Redis setup
 - [Environment Setup Guide](docs/ENVIRONMENT_SETUP.md) - Complete guide for all API keys
 - Examples in `/examples` - Working code for all use cases

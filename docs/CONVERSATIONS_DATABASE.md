@@ -4,11 +4,12 @@ This document explains the database structure for storing user conversations.
 
 ## Overview
 
-The chat API now persists all conversations to PostgreSQL in addition to Redis cache. This provides:
+The chat API persists all conversations to PostgreSQL (with **Drizzle ORM**) in addition to Redis cache. This provides:
 - **Permanent storage** of conversation history
 - **Analytics capabilities** - query conversations by user, date, etc.
 - **Redundancy** - conversations survive Redis cache expiration
 - **Scalability** - efficient queries with proper indexing
+- **Type Safety** - Drizzle ORM provides full TypeScript support
 
 ## Database Schema
 
@@ -40,14 +41,33 @@ Stores individual messages within conversations.
 | `metadata` | JSONB | Additional metadata |
 | `created_at` | TIMESTAMP | Message timestamp |
 
+#### `documents`
+Stores document embeddings for RAG (Retrieval-Augmented Generation) with pgvector.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | SERIAL | Primary key |
+| `content` | TEXT | Document content/text |
+| `metadata` | JSONB | Document metadata |
+| `embedding` | vector(1536) | Vector embedding (pgvector) |
+| `created_at` | TIMESTAMP | Document creation time |
+
 ### Indexes
 
 For optimal query performance:
+
+**Conversations:**
 - `conversations_conversation_id_idx` - Fast lookup by conversation ID
 - `conversations_user_id_idx` - Query conversations by user
 - `conversations_created_at_idx` - Time-based queries
+
+**Messages:**
 - `messages_conversation_id_idx` - Fast message retrieval
 - `messages_created_at_idx` - Chronological ordering
+
+**Documents (RAG):**
+- `documents_embedding_idx` - HNSW index for vector similarity search
+- `documents_metadata_idx` - GIN index for metadata queries
 
 ## Setup
 
@@ -59,17 +79,52 @@ If you're setting up a new database, the tables are automatically created by `do
 docker-compose up -d
 ```
 
-### Existing Database
+The database schema is now managed by **Drizzle ORM**. The schema is defined in `src/db/schema.ts`.
 
-If you already have a database running, apply the migration:
+### Automatic Migrations
+
+When using Docker, migrations run automatically on container startup:
 
 ```bash
-# Using psql
-psql $DATABASE_URL -f scripts/migrate-conversations.sql
-
-# Or using Docker
-docker exec -i agents-postgres psql -U postgres -d agents_db < scripts/migrate-conversations.sql
+docker-compose up -d
 ```
+
+The startup process:
+1. ✅ Waits for PostgreSQL to be ready
+2. ✅ Enables pgvector extension
+3. ✅ Checks if tables exist
+4. ✅ Runs Drizzle migrations if needed
+5. ✅ Starts the API server
+
+### Manual Migrations
+
+Run migrations manually with:
+
+```bash
+# Run migration script (checks tables and migrates if needed)
+bun run db:migrate
+
+# Or generate new migrations after schema changes
+bun run db:generate
+```
+
+### Development Workflow
+
+For schema changes during development:
+
+```bash
+# 1. Edit schema in src/db/schema.ts
+# 2. Generate migration
+bun run db:generate
+
+# 3. Apply migration
+bun run db:migrate
+
+# Or push directly (skip migration generation)
+bun run db:push
+```
+
+See [scripts/README.md](../scripts/README.md) for detailed migration documentation.
 
 ## Usage
 
@@ -187,9 +242,49 @@ GROUP BY DATE(created_at)
 ORDER BY date DESC;
 ```
 
-## ConversationDB Service
+## Using Drizzle ORM
 
-The `ConversationDB` class provides a clean API for database operations:
+This project uses **Drizzle ORM** for type-safe database operations. All queries are type-checked at compile time!
+
+### Direct Database Queries with Drizzle
+
+```typescript
+import { db, conversations, messages } from './src/db';
+import { eq, desc, sql } from 'drizzle-orm';
+
+// Get a conversation
+const [conv] = await db.select()
+  .from(conversations)
+  .where(eq(conversations.conversationId, 'conv-123'))
+  .limit(1);
+
+// Get messages
+const msgs = await db.select()
+  .from(messages)
+  .where(eq(messages.conversationId, 'conv-123'))
+  .orderBy(messages.createdAt);
+
+// Insert a message
+const [newMsg] = await db.insert(messages)
+  .values({
+    conversationId: 'conv-123',
+    role: 'user',
+    content: 'Hello!',
+    metadata: {}
+  })
+  .returning();
+
+// Using transactions
+await db.transaction(async (tx) => {
+  await tx.insert(messages).values({ ... });
+  await tx.update(conversations)
+    .set({ messageCount: sql`${conversations.messageCount} + 1` });
+});
+```
+
+### ConversationDB Service
+
+The `ConversationDB` class provides a high-level API (powered by Drizzle under the hood):
 
 ```typescript
 import { ConversationDB } from './src/services/conversation-db';
@@ -215,6 +310,45 @@ await db.deleteConversation('conv-123');
 
 // Cleanup old conversations
 const deleted = await db.deleteOldConversations(30); // 30 days old
+```
+
+### Drizzle ORM Benefits
+
+- **Type Safety**: All queries are type-checked at compile time
+- **IntelliSense**: Full autocomplete for tables, columns, and operations
+- **Better DX**: No string interpolation, cleaner syntax
+- **Migrations**: Built-in migration system with `drizzle-kit`
+- **Visual Tools**: Database browser with `bun run db:studio`
+
+### NPM Scripts for Database Management
+
+```bash
+bun run db:generate   # Generate migration files from schema
+bun run db:push       # Push schema changes to database (dev)
+bun run db:migrate    # Run pending migrations
+bun run db:studio     # Open Drizzle Studio (visual DB browser)
+```
+
+### Schema Definitions
+
+All database schemas are defined in `src/db/schema.ts`:
+
+```typescript
+// Conversations table schema
+export const conversations = pgTable("conversations", {
+  id: serial("id").primaryKey(),
+  conversationId: varchar("conversation_id", { length: 255 }).notNull().unique(),
+  userId: varchar("user_id", { length: 255 }),
+  locale: varchar("locale", { length: 10 }).notNull(),
+  model: varchar("model", { length: 100 }),
+  messageCount: integer("message_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// TypeScript types are auto-generated
+export type Conversation = typeof conversations.$inferSelect;
+export type InsertConversation = typeof conversations.$inferInsert;
 ```
 
 ## Data Flow
@@ -299,6 +433,21 @@ Check your `DATABASE_URL` in `.env`:
 psql $DATABASE_URL -c "SELECT 1;"
 ```
 
+## Drizzle Studio - Visual Database Browser
+
+Explore your database visually with Drizzle Studio:
+
+```bash
+bun run db:studio
+```
+
+This opens a web interface at `https://local.drizzle.studio` where you can:
+- Browse all tables and data
+- Run queries
+- Edit records
+- View relationships
+- Inspect indexes
+
 ## Next Steps
 
 Consider adding:
@@ -307,3 +456,10 @@ Consider adding:
 - Full-text search on message content
 - Message embeddings for semantic search
 - Export conversations to PDF/JSON
+
+### Learning More About Drizzle ORM
+
+- [Drizzle ORM Docs](https://orm.drizzle.team/)
+- [Drizzle with PostgreSQL](https://orm.drizzle.team/docs/get-started-postgresql)
+- [Drizzle Kit](https://orm.drizzle.team/kit-docs/overview)
+- [Schema Definition](https://orm.drizzle.team/docs/sql-schema-declaration)
