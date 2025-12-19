@@ -5,7 +5,6 @@ import { opentelemetry } from "@elysiajs/opentelemetry";
 import { createTelemetryConfig } from "../config/telemetry.ts";
 import { chatRoutes } from "./routes/chat.ts";
 import { ragRoutes } from "./routes/rag.ts";
-import { toolsRoutes } from "./routes/tools.ts";
 import { fileRoutes } from "./routes/files.ts";
 import { scraperRoutes } from "./routes/scraper.ts";
 import { errorHandler } from "./middleware/error-handler.ts";
@@ -88,7 +87,6 @@ export function createAPIServer(config: APIServerConfig = {}) {
             endpoints: {
                 chat: "/api/chat",
                 rag: "/api/rag",
-                tools: "/api/tools",
                 files: "/api/files",
                 scraper: "/api/scraper",
             },
@@ -99,7 +97,6 @@ export function createAPIServer(config: APIServerConfig = {}) {
         }))
         .use(chatRoutes)
         .use(ragRoutes)
-        .use(toolsRoutes)
         .use(fileRoutes)
         .use(scraperRoutes);
 
