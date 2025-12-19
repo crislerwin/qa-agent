@@ -1,15 +1,15 @@
-# AgentForge
+# AgentForge API
 
-🚀 **A modular, production-ready boilerplate for building AI agents** with LangChain, LangGraph, and modern AI APIs.
+🚀 **A production-ready REST API for building AI-powered applications** with LangChain, RAG, and modern AI models.
 
-Perfect for building Discord bots, task automation agents, RAG systems, and conversational AI with support for free models!
+Perfect for building AI chat applications, knowledge bases, document Q&A systems, and conversational AI with support for free models!
 
 ## ✨ Features
 
-- 🤖 **Multiple Agent Types**: Conversational, Web-enabled, RAG, Task automation
-- 🔧 **Modular Architecture**: Easy to customize and extend
+- 🌐 **REST API**: Elysia-based API server with comprehensive endpoints
+- 🤖 **AI-Powered Chat**: Conversational AI with web search and RAG capabilities
 - 💰 **Free Model Support**: Includes free models (Gemini Flash, Llama, Qwen)
-- 🎯 **Ready-to-use Tools**:
+- 🎯 **Ready-to-use Features**:
   - Web search (Tavily API)
   - RAG with PostgreSQL + pgvector
   - Redis-based chat memory
@@ -17,10 +17,8 @@ Perfect for building Discord bots, task automation agents, RAG systems, and conv
   - **Web Scraping** (Playwright + Readability + Turndown)
 - 🐳 **Docker Setup**: PostgreSQL and Redis run locally via Docker
 - 🗄️ **Drizzle ORM**: Type-safe database queries with full TypeScript support
-- 💬 **Discord Integration**: Full Discord bot support out of the box
-- 🌐 **REST API**: Elysia-based API server with all agent endpoints
-- 🏗️ **Factory Pattern**: Quick agent creation with preset configurations
-- 📚 **Complete Examples**: Learn from working examples
+- 🔧 **Modular Architecture**: Easy to customize and extend
+- 📊 **OpenTelemetry**: Built-in observability and tracing
 
 ## 🚀 Quick Start
 
@@ -41,7 +39,7 @@ cp .env.example .env
 
 **Minimum required:** Just one AI model API key (both have free tiers!)
 
-### 3. Start Database Services (Optional)
+### 3. Start Database Services
 
 For RAG and chat memory features, start PostgreSQL and Redis:
 
@@ -56,41 +54,42 @@ docker-compose ps
 See [docs/DOCKER_SETUP.md](docs/DOCKER_SETUP.md) for detailed Docker instructions.
 See [docs/ENVIRONMENT_SETUP.md](docs/ENVIRONMENT_SETUP.md) for all environment variables.
 
-### 4. Run the Demo
+### 4. Start the API Server
 
 ```bash
-bun run index.ts
+# Development mode
+bun run start:dev
+
+# Production mode
+bun run build
+bun run start
 ```
+
+The API will be available at `http://localhost:8000`
 
 ## 📁 Project Structure
 
 ```
 agentforge/
 ├── src/
-│   ├── agents/           # Pre-made agent configurations
 │   ├── api/              # REST API server
-│   │   ├── routes/       # API endpoints (chat, rag, tools, files)
-│   │   └── server.ts     # API server setup
+│   │   ├── middleware/   # Request handling middleware
+│   │   ├── routes/       # API endpoints (chat, rag, files, scraper)
+│   │   ├── server.ts     # API server setup
+│   │   └── types/        # Type definitions
 │   ├── config/           # Model configurations (OpenRouter, Gemini)
 │   ├── db/               # Database (Drizzle ORM)
 │   │   ├── schema.ts     # Table schemas with TypeScript types
 │   │   ├── client.ts     # Database connection
 │   │   └── index.ts      # Exports
 │   ├── factory/          # Agent factory functions
-│   ├── integrations/     # Discord bot integration
 │   ├── memory/           # Redis chat history
-│   ├── services/         # File processing, conversation DB, utilities
-│   └── tools/            # Reusable tools (web, calendar, RAG)
+│   ├── prompts/          # System prompts for AI agents
+│   ├── services/         # Business logic (file processing, conversation DB, scraper)
+│   ├── tools/            # AI tools (web search, RAG)
+│   └── utils/            # Utilities (logger, chunking)
 ├── drizzle/              # Database migrations (auto-generated)
-├── examples/             # Complete usage examples
-│   ├── simple-chat.ts
-│   ├── web-search.ts
-│   ├── rag-agent.ts
-│   ├── task-automation.ts
-│   ├── discord-bot.ts
-│   ├── full-agent.ts
-│   ├── test-file-upload.ts
-│   └── sample-document.md
+├── tests/                # Test files
 ├── uploads/              # File upload directory (auto-created)
 ├── drizzle.config.ts     # Drizzle ORM configuration
 └── docs/                 # Documentation
@@ -99,135 +98,79 @@ agentforge/
     └── DOCKER_SETUP.md
 ```
 
-## 🎯 Usage Examples
+## 🌐 API Endpoints
 
-### Simple Conversational Agent
+### Chat
 
-```typescript
-import { simpleAgent } from "./src/agents/index.ts";
-
-const response = await simpleAgent.invoke({
-  messages: [{ role: "user", content: "Hello!" }],
-});
-```
-
-### Web Search Agent
-
-```typescript
-import { createWebAgent, ModelPresets } from "./src/agents/index.ts";
-
-const agent = createWebAgent({
-  model: ModelPresets.free(), // Uses free Gemini Flash
-});
-
-const response = await agent.invoke({
-  messages: [{ role: "user", content: "Search the web for latest AI news" }],
-});
-```
-
-### RAG Agent (Knowledge Base)
-
-```typescript
-import { PGVectorRAG, createRAGAgent } from "./src/agents/index.ts";
-
-const rag = new PGVectorRAG(); // Uses local PostgreSQL via Docker
-const agent = createRAGAgent(rag);
-
-await agent.invoke({
-  messages: [{ role: "user", content: "Add this to knowledge base: ..." }],
-});
-```
-
-### Discord Bot
-
-```typescript
-import { createDiscordAgent, createDiscordBot } from "./src/agents/index.ts";
-
-const agent = createDiscordAgent();
-const bot = await createDiscordBot({ agent });
-// Bot is now running!
-```
-
-### REST API
-
-````typescript
-import { startAPIServer } from "./src/api/server.ts";
-
-// Start API server on port 3000
-startAPIServer({ port: 3000 });
-
-// Available endpoints:
-// - /api/chat      - Chat with agents
-// - /api/rag       - RAG operations (search, add documents)
-// - /api/tools     - Tool execution
-// - /api/files     - File upload & processing
-
-// Example: Chat
-fetch("http://localhost:3000/api/chat", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    message: "Hello!",
-    model: "free",
-  }),
-});
-
-```typescript
-// Example: Upload file
-const formData = new FormData();
-formData.append("file", fileBlob);
-
-fetch("http://localhost:3000/api/files/upload", {
-  method: "POST",
-  body: formData,
-});
-````
-
-## 🛠️ Available Agents
-
-### Factory Functions
-
-- `createConversationalAgent()` - Simple chat agent
-- `createWebAgent()` - Web search + URL fetching
-- `createRAGAgent()` - Knowledge base powered
-- `createDiscordAgent()` - Optimized for Discord
-- `createFullAgent()` - All features combined
-
-### Model Presets
-
-```typescript
-import { ModelPresets } from "./src/config/models.ts";
-
-// FREE models
-ModelPresets.free(); // Gemini Flash via OpenRouter
-ModelPresets.freeGemini(); // Gemini Flash via AI Studio
-ModelPresets.freeLlama(); // Llama 3.1 8B
-ModelPresets.freeQwen(); // Qwen 2.5 7B
-
-// PAID models
-ModelPresets.fast(); // Claude Haiku
-ModelPresets.balanced(); // Claude Sonnet
-ModelPresets.powerful(); // Claude Opus
-ModelPresets.geminiPro(); // Gemini Pro
-```
-
-## 🔧 Tools Available
-
-### Web Tools
-
-- `createWebSearchTool()` - Tavily web search
-- `createNewsSearchTool()` - Latest news search
-- `createURLFetchTool()` - Fetch content from URLs
+- **POST** `/api/chat` - Chat with AI agent (supports web search + RAG)
+- **GET** `/api/chat/history/:id` - Get conversation history
+- **DELETE** `/api/chat/history/:id` - Clear conversation history
 
 ### RAG (Knowledge Base)
 
-- `PGVectorRAG.createSearchTool()` - Search knowledge base
-- `PGVectorRAG.createSearchTool()` - Search knowledge base
-- `PGVectorRAG.createAddDocumentTool()` - Add documents
+- **POST** `/api/rag/documents` - Add documents to knowledge base
+- **POST** `/api/rag/search` - Search knowledge base
+- **DELETE** `/api/rag/documents` - Clear knowledge base
+
+### File Upload
+
+- **POST** `/api/files/upload` - Upload and process files
+- **POST** `/api/files/process/:filename` - Process uploaded file
+- **POST** `/api/files/process-all` - Process all uploaded files
+- **GET** `/api/files/list` - List all uploaded files
+- **DELETE** `/api/files/:filename` - Delete specific file
+- **DELETE** `/api/files/` - Clear all uploaded files
 
 ### Web Scraping
 
-- `ScraperService` - Scrape, clean, and convert web pages to Markdown
+- **POST** `/api/scraper/scrape` - Scrape URL and save to knowledge base
+
+### Health & Info
+
+- **GET** `/` - API information
+- **GET** `/health` - Health check
+- **GET** `/swagger` - Interactive API documentation
+
+## 🎯 Usage Examples
+
+### Chat with AI
+
+```bash
+curl -X POST http://localhost:8000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "What is the weather like?",
+    "conversation_id": "conv-123",
+    "locale": "en"
+  }'
+```
+
+### Upload and Process Files
+
+```bash
+# Upload a document
+curl -X POST http://localhost:8000/api/files/upload \
+  -F "file=@document.txt"
+
+# Search the knowledge base
+curl -X POST http://localhost:8000/api/rag/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "your question", "topK": 5}'
+```
+
+### Scrape Web Content
+
+```bash
+curl -X POST http://localhost:8000/api/scraper/scrape \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com"}'
+```
+
+### Get Conversation History
+
+```bash
+curl http://localhost:8000/api/chat/history/conv-123
+```
 
 ## 📤 File Upload & Embeddings
 
@@ -240,79 +183,11 @@ Upload files, process them into embeddings, and store them in your vector databa
 - **JSON** (`.json`) - JSON data (auto-formatted)
 - **CSV** (`.csv`) - CSV data (parsed and structured)
 
-### Quick Start
-
-**1. Start the API server:**
-
-```bash
-bun run start:dev
-```
-
-**2. Upload a file:**
-
-```bash
-# Upload and process automatically
-curl -X POST http://localhost:3000/api/files/upload \
-  -F "file=@document.txt"
-```
-
-**3. Search your documents:**
-
-```bash
-curl -X POST http://localhost:3000/api/rag/search \
-  -H "Content-Type: application/json" \
-  -d '{"query": "your question", "topK": 5}'
-```
-
-**4. Run the test:**
-
-```bash
-bun run test:upload
-```
-
-### API Endpoints
-
-| Endpoint                       | Method | Description                           |
-| ------------------------------ | ------ | ------------------------------------- |
-| `/api/files/upload`            | POST   | Upload file and process automatically |
-| `/api/files/process/:filename` | POST   | Process uploaded file (re-process)    |
-| `/api/files/process-all`       | POST   | Process all uploaded files in batch   |
-| `/api/files/list`              | GET    | List all uploaded files               |
-| `/api/files/:filename`         | DELETE | Delete specific file                  |
-| `/api/files/`                  | DELETE | Clear all uploaded files              |
-
-### Usage Examples
-
-**Upload and process:**
-
-```bash
-curl -X POST http://localhost:3000/api/files/upload \
-  -F "file=@mydata.txt"
-```
-
-**Batch upload and process:**
-
-```bash
-# Upload multiple files
-curl -X POST http://localhost:3000/api/files/upload -F "file=@file1.txt"
-curl -X POST http://localhost:3000/api/files/upload -F "file=@file2.md"
-curl -X POST http://localhost:3000/api/files/upload -F "file=@file3.json"
-
-# Process all at once
-curl -X POST http://localhost:3000/api/files/process-all
-```
-
-**List uploaded files:**
-
-```bash
-curl http://localhost:3000/api/files/list
-```
-
 ### How It Works
 
 1. **Upload** - Files saved to `./uploads` directory
 2. **Parse** - Content extracted based on file type
-3. **Chunk** - **Cluster Semantic Chunking**: Uses dynamic programming to split text into semantically coherent groups based on vector similarity (instead of arbitrary character counts).
+3. **Chunk** - **Cluster Semantic Chunking**: Uses dynamic programming to split text into semantically coherent groups based on vector similarity (instead of arbitrary character counts)
 4. **Embed** - Each chunk converted to vector embedding
 5. **Store** - Embeddings saved in PostgreSQL with pgvector
 6. **Search** - Semantic search across all documents
@@ -325,21 +200,6 @@ Default settings (customizable in `src/services/file-processor.ts`):
 - **Chunk size**: 1000 characters
 - **Chunk overlap**: 200 characters
 - **Max file size**: 10MB
-
-### Test Script
-
-Run the included test to see it in action:
-
-```bash
-bun run test:upload
-```
-
-This will:
-
-- Create a test document
-- Upload and process it
-- Run example searches
-- Show results with relevance scores
 
 ## 🗄️ Database with Drizzle ORM
 
@@ -394,60 +254,60 @@ Extract content from any URL, convert it to clean Markdown, and automatically sa
 - **Markdown Conversion**: Converts HTML to clean Markdown
 - **Auto-RAG**: Automatically chunks and saves content to pgvector
 
-### Usage
+## 🔧 Model Configuration
 
-**Scrape and Save:**
+### Model Presets
 
-```bash
-curl -X POST http://localhost:8000/api/scraper/scrape \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://example.com"}'
+```typescript
+import { ModelPresets } from "./src/config/models.ts";
+
+// FREE models
+ModelPresets.free();          // Gemini Flash via OpenRouter
+ModelPresets.freeGemini();    // Gemini Flash via AI Studio
+ModelPresets.freeLlama();     // Llama 3.1 8B
+ModelPresets.freeQwen();      // Qwen 2.5 7B
+
+// PAID models
+ModelPresets.fast();          // Claude Haiku
+ModelPresets.balanced();      // Claude Sonnet
+ModelPresets.powerful();      // Claude Opus
+ModelPresets.geminiPro();     // Gemini Pro
 ```
 
-**Response:**
+### Default Model
 
-```json
-{
-  "success": true,
-  "chunks_count": 5,
-  "message": "Successfully scraped https://example.com and saved 5 chunks to knowledge base."
-}
-```
-
-## 📚 Examples
-
-Run any example:
+The API uses `getDefaultModel()` which auto-detects based on your `.env` configuration:
 
 ```bash
-bun run examples/simple-chat.ts
-bun run examples/web-search.ts
-bun run examples/rag-agent.ts
-bun run examples/task-automation.ts
-bun run examples/discord-bot.ts
-bun run examples/full-agent.ts
-bun run examples/api-server.ts      # Start API server
-bun run examples/api-client.ts      # API client examples
-bun run test:upload                  # Test file upload & embeddings
+# Option 1: Use OpenRouter (supports many models)
+OPEN_ROUTER_API_KEY=your_key_here
+OPEN_ROUTER_MODEL=x-ai/grok-4.1-fast:free
+
+# Option 2: Use Google AI Studio (Gemini models)
+GOOGLE_AI_STUDIO_API_KEY=your_key_here
+GEMINI_MODEL=gemini-2.5-flash-lite
+
+# Optional: Force a specific provider
+MODEL_PROVIDER=gemini  # or 'openrouter'
 ```
 
 ## 🌟 Use Cases
 
-This boilerplate is perfect for:
+This API is perfect for:
 
-- 💬 **Discord/Slack bots** with AI capabilities
-- 🌐 **REST API backends** for AI-powered apps
-- 🔍 **Research agents** with web search
-- 📚 **Documentation Q&A** with RAG
-- 🤝 **Customer support** bots
-- 🔄 **Workflow automation** agents
+- 🌐 **AI Chat Applications**: Build conversational AI with memory
+- 📚 **Documentation Q&A**: RAG-powered knowledge base search
+- 🤝 **Customer Support**: AI-powered support systems
+- 🔍 **Research Tools**: Web search + document analysis
+- 📊 **Data Analysis**: Upload CSV/JSON and query with AI
+- 🎓 **Educational Platforms**: Interactive learning assistants
 
 ## 📖 Documentation
 
-- [API Documentation](docs/API.md) - REST API endpoints reference
 - [Database & Drizzle ORM](docs/CONVERSATIONS_DATABASE.md) - Database schema, Drizzle ORM guide
 - [Docker Setup Guide](docs/DOCKER_SETUP.md) - PostgreSQL + Redis setup
 - [Environment Setup Guide](docs/ENVIRONMENT_SETUP.md) - Complete guide for all API keys
-- Examples in `/examples` - Working code for all use cases
+- [Swagger Documentation](http://localhost:8000/swagger) - Interactive API docs (when server is running)
 
 ## 🆓 Free & Local Setup
 
@@ -460,9 +320,33 @@ Run everything locally with Docker (no external accounts needed for databases!):
 | PostgreSQL + pgvector | 🐳 Docker (local)       | Vector database for RAG        |
 | Redis                 | 🐳 Docker (local)       | Chat memory                    |
 | Tavily                | ✅ Free tier (1,000/mo) | Web search                     |
-| Discord               | ✅ Free                 | Bot hosting                    |
 
 **🐳 = Runs locally via Docker - no account or payment needed!**
+
+## 🔒 Security Features
+
+- **IP Whitelisting**: Optional IP-based access control
+- **CORS Configuration**: Configurable cross-origin requests
+- **Request ID Tracking**: Correlation IDs for request tracing
+- **Error Handling**: Global error handler with proper logging
+- **Input Validation**: Request validation with Elysia's type system
+
+## 📊 Observability
+
+- **OpenTelemetry**: Built-in distributed tracing
+- **Request Logging**: Automatic request/response logging
+- **Correlation IDs**: Track requests across services
+- **Health Checks**: Monitor API status
+
+## 🧪 Testing
+
+```bash
+# Run tests
+bun test
+
+# Run specific test
+bun test tests/api.test.ts
+```
 
 ## 🤝 Contributing
 
@@ -474,4 +358,4 @@ MIT
 
 ---
 
-Built with [LangChain](https://langchain.com), [LangGraph](https://langchain-ai.github.io/langgraph/), and [Bun](https://bun.sh)
+Built with [LangChain](https://langchain.com), [LangGraph](https://langchain-ai.github.io/langgraph/), [Elysia](https://elysiajs.com/), and [Bun](https://bun.sh)
