@@ -56,6 +56,9 @@ COPY --from=build /usr/src/app/scripts ./scripts
 COPY --from=build /usr/src/app/docker ./docker
 COPY --from=build /usr/src/app/scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
+# Install Chromium for Playwright (as root before switching user)
+RUN bunx playwright-core install chromium --with-deps
+
 # Setup permissions
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh && \
     chown -R bun:bun /usr/src/app && \
@@ -64,9 +67,6 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh && \
 
 # Switch to non-root user
 USER bun
-
-# Install Chromium for Playwright
-RUN bunx playwright-core install chromium --with-deps
 
 EXPOSE 8000/tcp
 ENTRYPOINT [ "/usr/local/bin/docker-entrypoint.sh" ]
