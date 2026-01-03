@@ -1,16 +1,13 @@
 import { ExploratoryAgent, type AgentConfig } from "./core.ts";
 import { createLogger } from "../utils/logger.ts";
 import { generateReport } from "./utils/report.ts";
-import readline from "node:readline/promises";
-import { stdin as input, stdout as output } from "node:process";
+import * as clack from "@clack/prompts";
 
 const logger = createLogger("agent:cli");
 
 async function main() {
-  const rl = readline.createInterface({ input, output });
-
-  console.log("Welcome to the Exploratory Testing Agent!");
-  console.log("Target: https://with-bugs.practicesoftwaretesting.com");
+  clack.intro(`✨ Welcome to the Fancy Agents CLI ✨`);
+  const s = clack.spinner();
 
   const config: AgentConfig = {
     baseUrl: "https://with-bugs.practicesoftwaretesting.com",
@@ -20,70 +17,91 @@ async function main() {
   const agent = new ExploratoryAgent(config);
 
   try {
+    s.start("Starting Agent & Browser...");
     await agent.start();
+    s.stop("Agent Started");
+
     let running = true;
+    let nextGuidance: string | undefined = undefined;
 
     while (running) {
-      // Run a step
-      console.log("\n--- Agent Step ---");
-      const result = await agent.step();
+      // 1. Run Step
+      s.start("Agent is thinking & acting...");
 
-      console.log(`\nAction: ${result.action}`);
-      console.log(`Reason: ${result.reason}`);
+      const result = await agent.step(nextGuidance);
+      nextGuidance = undefined; // Clear guidance after single use
+
+      s.stop(`Step Complete: ${result.action}`);
+
+      clack.note(
+        `Reason: ${result.reason}\nAction: ${result.action}`,
+        "Agent Status"
+      );
 
       if (result.completed) {
-        console.log("Agent has decided to finish exploration.");
+        clack.log.success("Agent has decided to finish exploration.");
         running = false;
         break;
       }
 
-      // Human-in-the-loop interaction
-      // Ask user every 2-3 steps or always? The challenge says "periodically".
-      // Let's do it every step for control, or default to "continue".
+      // 2. Human-in-the-loop
+      const answer = await clack.select({
+        message: "What should the agent do next?",
+        options: [
+          { value: "continue", label: "Continue Exploration" },
+          { value: "guidance", label: "Give Guidance/Feedback" },
+          { value: "stop", label: "Stop & Report" },
+        ],
+      });
 
-      // For a smoother demo, maybe just prompt "Press key to continue" or type "stop"?
-      // But requirement says "Allow current page summary, proposed next steps, continue/stop/guidance".
-      // The agent step() already happened, so we actually see what it DID.
-      // Ideally, we should ASK the agent what it WANTS to do, then approve it?
-      // My implementation does "Observation -> Think -> Act" in one step().
-      // If I want to approve, I should split step() or just review AFTER the action?
-      // "Human-in-the-loop mechanism... periodical... asking... to continue... stop... or provide guidance".
-      // It doesn't strictly say "approve every action". It says "periodically ask".
-      // So asking AFTER an action is fine for "continue exploration".
-      // Guidance can be injected into the next prompt?
-      // The current `step()` doesn't take input. I should update `step()` to take optional user guidance?
-      // I'll update `ExploratoryAgent.step()` signature in next iteration if needed, or simply inject it via state?
-      // Actually, I can just not pass it for now, unless I modify core.ts.
-      // Let's modify core.ts to accept `additionalContext` in step()!
-
-      const answer = await rl.question(
-        "\n[Enter] Continue | [s] Stop | [g] Guidance: "
-      );
-
-      if (answer.toLowerCase() === "s") {
+      if (clack.isCancel(answer)) {
         running = false;
-      } else if (answer.toLowerCase() === "g") {
-        const guidance = await rl.question("Enter guidance for the agent: ");
-        // We need to pass this guidance to the agent's next step.
-        // Since step() doesn't support it yet, I'll rely on the agent's memory?
-        // Or I should patch `step` to accept a string argument.
-        // I will modify `src/agent/core.ts` via multi_replace in a moment to accept guidance.
-        // For now, I'll assume we can't or I'll implement it shortly.
-        console.log(
-          "Guidance recorded (Not fully implemented in core yet, will add)."
-        );
+        break;
+      }
+
+      if (answer === "stop") {
+        running = false;
+      } else if (answer === "guidance") {
+        const userGuidance = await clack.text({
+          message: "Enter your guidance for the next step:",
+          placeholder:
+            "e.g., 'Click on the login button' or 'Check the cart page'",
+        });
+
+        if (clack.isCancel(userGuidance)) {
+          // Treat cancel as generic continue
+          continue;
+        }
+
+        if (typeof userGuidance === "string") {
+          nextGuidance = userGuidance;
+          clack.log.info(`Guidance recorded: "${nextGuidance}"`);
+        }
       }
     }
 
     // Generate Report
-    console.log("\nGenerating Report...");
+    s.start("Generating Report...");
     const reportPath = await generateReport(agent.getFindings());
-    console.log(`Report generated at: ${reportPath}`);
+    s.stop("Report Generated");
+
+    clack.log.success(`Report saved to: ${reportPath}`);
+
+    // Feature: See Report in Terminal
+    try {
+      const reportContent = await Bun.file(reportPath).text();
+      console.log("\n"); // Spacing
+      clack.note(reportContent, "Report Preview");
+    } catch (error) {
+      clack.log.error("Could not read report file for preview.");
+    }
   } catch (error) {
+    s.stop("Agent Failed");
     logger.error("Agent failed:", error);
+    clack.log.error(`Critical Error: ${error}`);
   } finally {
     await agent.stop();
-    rl.close();
+    clack.outro("Goodbye! 👋");
   }
 }
 

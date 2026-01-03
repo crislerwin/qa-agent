@@ -109,15 +109,39 @@ export class ExploratoryAgent {
               (el as HTMLImageElement).alt || (el as HTMLImageElement).src
             }]`;
 
-          // Generate a simple selector
-          let selector = el.tagName.toLowerCase();
-          if (el.id) selector += `#${el.id}`;
-          else if (el.className)
-            selector += `.${el.className.split(" ").join(".")}`;
-          if ((el as HTMLAnchorElement).href)
-            selector += `[href="${(el as HTMLAnchorElement).getAttribute(
-              "href"
-            )}"]`;
+          // Generate a robust selector
+          let selector = "";
+
+          // Priority 1: data-testid / data-test
+          const testId =
+            el.getAttribute("data-testid") || el.getAttribute("data-test");
+          if (testId) {
+            selector = `[data-test="${testId}"]`;
+          } else if (el.id) {
+            // Priority 2: ID
+            selector = `#${el.id}`;
+          } else if (el.tagName === "A" && (el as HTMLAnchorElement).href) {
+            // Priority 3: Href for links
+            const href = (el as HTMLAnchorElement).getAttribute("href");
+            if (href) selector = `a[href="${href}"]`;
+          } else if (el.getAttribute("role")) {
+            // Priority 4: Role
+            selector = `[role="${el.getAttribute("role")}"]`;
+          } else if (el.tagName === "BUTTON" && text) {
+            // Priority 5: Button text (Playwright specific, but we'll return a pseudo-selector or xpath/text)
+            // For simplicity, let's stick to unique attributes or class combo
+            if (el.className)
+              selector = `${el.tagName.toLowerCase()}.${el.className
+                .split(" ")
+                .join(".")}`;
+            else selector = el.tagName.toLowerCase();
+          } else {
+            if (el.className)
+              selector = `${el.tagName.toLowerCase()}.${el.className
+                .split(" ")
+                .join(".")}`;
+            else selector = el.tagName.toLowerCase();
+          }
 
           return {
             tag: el.tagName.toLowerCase(),
@@ -167,7 +191,7 @@ INSTRUCTIONS:
     `;
 
     if (guidance) {
-      systemPrompt += `\n\nUSER GUIDANCE: ${guidance}\nPay special attention to the user's guidance above.`;
+      systemPrompt += `\n\n### CRITICAL USER INSTRUCTION ###\nThe user has provided specific guidance:\n"${guidance}"\n\nYou MUST prioritize this instruction above all else. Drop your current plan if necessary and execute the user's request immediately in this step.\n#################################`;
     }
 
     const userMessage = `
@@ -270,24 +294,45 @@ What is your next move? Response MUST be a raw JSON object.
     try {
       switch (action) {
         case "navigate":
+          logger.log(`Navigating to: ${params.url}`);
           await this.page.goto(params.url);
           break;
         case "click":
-          // We need a robust click strategy. We try to match the selector or text?
-          // The snapshot gave us a selector.
-          // We might need to handle "text=" selectors if the LLM invents them.
-          // For now, assume the LLM uses the selector from snapshot or a css selector.
+          logger.log(
+            `Attempting click on: ${params.selector} (Text hint: ${
+              params.text || "N/A"
+            })`
+          );
           try {
-            await this.page.click(params.selector, { timeout: 5000 });
+            await this.page.click(params.selector, { timeout: 2000 });
+            logger.log(`Click SUCCESS: ${params.selector}`);
           } catch (e) {
-            // Fallback: try to find by text if selector fails
-            logger.warn(
-              `Click failed for ${params.selector}, trying text search...`
-            );
-            // This is tricky without more sophisticated element mapping
+            // Fallback 1: Try adding the tag name if it was missing or simplistic
+            try {
+              logger.warn(
+                `Click failed for ${params.selector}, trying loose match...`
+              );
+              // If selector is just a class or simple string, maybe try text?
+              if (params.text || params.selector) {
+                const textToFind = params.text || params.selector; // Agent might pass text as selector
+                // Playwright's getByText is powerful
+                const el = this.page
+                  .getByText(textToFind, { exact: false })
+                  .first();
+                if ((await el.count()) > 0 && (await el.isVisible())) {
+                  await el.click();
+                  logger.log(`Click SUCCESS (by text): "${textToFind}"`);
+                  return;
+                }
+              }
+            } catch (innerE) {
+              logger.error(`Click fallback failed: ${innerE}`);
+            }
+            logger.error(`Click failed for ${params.selector}`);
           }
           break;
         case "type":
+          logger.log(`Typing into ${params.selector}: "${params.text}"`);
           await this.page.fill(params.selector, params.text);
           break;
         case "find_broken_images":

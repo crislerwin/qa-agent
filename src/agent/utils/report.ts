@@ -6,7 +6,7 @@ export async function generateReport(
 ): Promise<string> {
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const filename = `report-${timestamp}.md`;
-  const path = `uploads/${filename}`; // Save to uploads dir for convenience
+  const path = `reports/${filename}`;
 
   let content = `# Exploratory Testing Report
 Date: ${new Date().toLocaleString()}
