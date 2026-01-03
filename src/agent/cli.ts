@@ -22,6 +22,17 @@ async function main() {
     process.exit(0);
   }
 
+  // 0. Configuration: Autonomous Mode
+  const isAutonomous = await clack.confirm({
+    message: "Run in Autonomous Mode? (No user confirmation between steps)",
+    initialValue: false,
+  });
+
+  if (clack.isCancel(isAutonomous)) {
+    clack.outro("Operation cancelled.");
+    process.exit(0);
+  }
+
   const config: AgentConfig = {
     baseUrl: baseUrl as string,
     maxSteps: 10,
@@ -55,6 +66,13 @@ async function main() {
         clack.log.success("Agent has decided to finish exploration.");
         running = false;
         break;
+      }
+
+      if (isAutonomous) {
+        // In autonomous mode, we automatically continue.
+        // We might want a small delay so the user can see what's happening or Ctrl+C if needed.
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        continue;
       }
 
       // 2. Human-in-the-loop
@@ -95,7 +113,10 @@ async function main() {
 
     // Generate Report
     s.start("Generating Report...");
-    const reportPath = await generateReport(agent.getFindings());
+    const reportPath = await generateReport(
+      agent.getFindings(),
+      agent.getVisitedUrls()
+    );
     s.stop("Report Generated");
 
     clack.log.success(`Report saved to: ${reportPath}`);
