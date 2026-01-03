@@ -6,11 +6,24 @@ import * as clack from "@clack/prompts";
 const logger = createLogger("agent:cli");
 
 async function main() {
-  clack.intro(`✨ Welcome to the Fancy Agents CLI ✨`);
+  clack.intro(`✨ Welcome to the Exploratory Agent CLI ✨`);
   const s = clack.spinner();
 
+  const defaultUrl = "https://with-bugs.practicesoftwaretesting.com";
+
+  const baseUrl = await clack.text({
+    message: "Enter the target website URL:",
+    placeholder: defaultUrl,
+    defaultValue: defaultUrl,
+  });
+
+  if (clack.isCancel(baseUrl)) {
+    clack.outro("Operation cancelled.");
+    process.exit(0);
+  }
+
   const config: AgentConfig = {
-    baseUrl: "https://with-bugs.practicesoftwaretesting.com",
+    baseUrl: baseUrl as string,
     maxSteps: 10,
   };
 
