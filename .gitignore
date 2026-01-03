@@ -6,8 +6,8 @@ out
 dist
 *.tgz
 
-# uploads
-uploads
+# reports
+reports
 
 # code coverage
 coverage
