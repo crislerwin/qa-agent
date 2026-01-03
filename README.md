@@ -25,13 +25,13 @@ graph TD
     Nav --> Loop{Exploration Loop}
 
     Loop --> Observe[1. Observe]
-    Observe --> Snapshot[Capture Simplified DOM & State]
+    Observe --> Snapshot["Capture Simplified DOM & State"]
 
-    Snapshot --> Think[2. Think (LLM)]
-    Think --> Plan[Decide Next Action & Reason]
+    Snapshot --> Think["2. Think (LLM)"]
+    Think --> Plan["Decide Next Action & Reason"]
 
     Plan --> Act[3. Act]
-    Act --> Execute[Execute Action (Click, Type, Scan, etc.)]
+    Act --> Execute["Execute Action (Click, Type, Scan, etc.)"]
 
     Execute --> Check[Check Completion]
     Check -- Continue --> Loop
