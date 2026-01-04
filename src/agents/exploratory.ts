@@ -8,7 +8,7 @@ import {
   type BrokenImageFinding,
 } from "../tools/broken-images.ts";
 import { crawlSite } from "../tools/crawler.ts";
-import type { AgentConfig, AgentState } from "../types/index.ts";
+import type { AgentConfig, AgentFinding, AgentState } from "../types/index.ts";
 
 const logger = createLogger("agent:exploratory");
 

@@ -58,4 +58,62 @@ describe("findBrokenImages Tool", () => {
     expect(emptySrc).toBeDefined();
     expect(emptySrc?.reason).toContain("Missing 'src'");
   });
+
+  test("should generate unique selectors for siblings without IDs", async () => {
+    const htmlContent = `
+        <body>
+            <div id="container">
+                <img src="broken1.png" class="test-img" />
+                <img src="broken2.png" class="test-img" />
+            </div>
+        </body>
+    `;
+    await page.setContent(htmlContent);
+    const findings = await findBrokenImages(page);
+
+    expect(findings.length).toBe(2);
+    // Expect unique selectors
+    const selectors = findings.map((f) => f.selector);
+    // They should look like img.test-img:nth-of-type(1) and img.test-img:nth-of-type(2)
+    // Or at least be different
+    expect(selectors[0]).not.toBe(selectors[1]);
+    expect(selectors[0]).toContain(":nth-of-type");
+  });
+
+  test("should report multiple instances of the same broken image", async () => {
+    const htmlContent = `
+        <body>
+            <div id="container">
+                <img src="duplicate.png" class="test-img" />
+                <img src="duplicate.png" class="test-img" />
+            </div>
+        </body>
+    `;
+    await page.setContent(htmlContent);
+    const findings = await findBrokenImages(page);
+
+    expect(findings.length).toBe(2);
+    expect(findings[0].src).toBe("duplicate.png");
+    expect(findings[1].src).toBe("duplicate.png");
+
+    expect(findings[0].selector).not.toBe(findings[1].selector);
+  });
+
+  test("should produce distinct selectors for images in different parents", async () => {
+    const htmlContent = `
+        <body>
+            <div class="parent-a">
+                <img src="common-broken.png" />
+            </div>
+            <div class="parent-b">
+                <img src="common-broken.png" />
+            </div>
+        </body>
+    `;
+    await page.setContent(htmlContent);
+    const findings = await findBrokenImages(page);
+
+    expect(findings.length).toBe(2);
+    expect(findings[0].selector).not.toBe(findings[1].selector);
+  });
 });
