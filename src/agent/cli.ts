@@ -66,16 +66,52 @@ async function main() {
 
       s.stop(`Step Complete: ${result.action}`);
 
-      const truncate = (str: string, max: number) =>
-        str.length > max ? str.substring(0, max) + "..." : str;
+      // Helper to wrap text at a specific length to prevent UI breakage
+      const wrapText = (str: string, maxWidth: number = 80): string => {
+        if (!str) return "";
+        const words = str.split(" ");
+        if (words.length === 0) return "";
 
-      clack.note(
-        `Reason: ${truncate(result.reason, 300)}\nAction: ${truncate(
-          result.action,
-          100
-        )}`,
-        "Agent Status"
-      );
+        let lines: string[] = [];
+        let currentLine = words[0] || "";
+
+        for (let i = 1; i < words.length; i++) {
+          const word = words[i] || "";
+          if (currentLine.length + 1 + word.length <= maxWidth) {
+            currentLine += " " + word;
+          } else {
+            lines.push(currentLine);
+            currentLine = word;
+          }
+        }
+        lines.push(currentLine);
+        return lines.join("\n");
+      };
+
+      if (result.stats) {
+        const { currentUrl, queueLength, visitedCount } = result.stats;
+        clack.note(
+          `Current Page: ${currentUrl}
+Queue Size:   ${queueLength} items pending
+Discovered:   ${visitedCount} pages visited
+
+Action:
+${wrapText(result.action, 80)}
+
+Reason:
+${wrapText(result.reason, 80)}`,
+          "Agent Progress"
+        );
+      } else {
+        clack.note(
+          `Reason:
+${wrapText(result.reason, 80)}
+
+Action:
+${wrapText(result.action, 80)}`,
+          "Agent Status"
+        );
+      }
 
       if (result.completed) {
         clack.log.success("Agent has decided to finish exploration.");
