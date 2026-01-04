@@ -42,9 +42,6 @@ graph TD
     subgraph Tools
     FindBroken[find_broken_images]
     Navigate
-    Click
-    Type
-    RecordFinding[record_finding]
     end
 
     Execute -.-> Tools
@@ -55,9 +52,8 @@ graph TD
 1.  **Core Agent (`src/agent/core.ts`)**: Manages the browser instance, state (visited URLs, findings), and the main exploration loop.
 2.  **CLI (`src/agent/cli.ts`)**: Provides the user interface, prompting for the target URL and displaying status.
 3.  **Tools**:
-    - `navigate`, `click`, `type`: Standard browser interactions.
+    - `navigate`: Standard browser interactions.
     - `find_broken_images`: Custom tool to scan for 404s and invalid images.
-    - `record_finding`: Logs discovered bugs.
 
 ## ⚙️ Design Decisions & Trade-offs
 

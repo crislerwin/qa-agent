@@ -12,11 +12,9 @@ import { crawlSite } from "./tools/crawler.ts";
 const logger = createLogger("agent:core");
 
 export interface AgentFinding {
-  type: "bug" | "ui_issue" | "broken_image" | "ux_issue" | "other";
+  type: "broken_image" | "other";
   description: string;
-  severity: "low" | "medium" | "high" | "critical";
   url: string;
-  screenshot?: string; // path to screenshot
   selector?: string; // unique element identifier (e.g. css selector)
 }
 
@@ -24,7 +22,6 @@ export interface AgentState {
   visitedUrls: Set<string>;
   findings: AgentFinding[];
   steps: number;
-  visitedSelectors: Set<string>; // Dedup clicks: URL + Selector
   history: { action: string; reason: string; url: string; result?: string }[]; // Short-term memory
   todoQueue: string[]; // URLs to explore
   scannedUrls: Set<string>; // URLs that have been scanned for broken images
@@ -44,7 +41,6 @@ export class ExploratoryAgent {
     visitedUrls: new Set(),
     findings: [],
     steps: 0,
-    visitedSelectors: new Set(),
     history: [],
     todoQueue: [],
     scannedUrls: new Set(),
@@ -113,65 +109,42 @@ export class ExploratoryAgent {
     this.state.visitedUrls.add(url);
 
     // Simplified DOM for LLM
-    // We get interactive elements and headers
+    // We get only links and images since we are a passive crawler
     const snapshot = await this.page.evaluate(() => {
-      const elements = document.querySelectorAll(
-        "button, a, input, select, textarea, h1, h2, h3, .alert, .error, img"
-      );
+      const elements = document.querySelectorAll("a, img");
       return Array.from(elements)
         .map((el) => {
           const rect = el.getBoundingClientRect();
           if (rect.width === 0 || rect.height === 0) return null; // Skip invisible
 
-          let text = el.textContent?.trim() || "";
-          if (el.tagName === "INPUT")
-            text = `[Input: ${
-              (el as HTMLInputElement).placeholder ||
-              (el as HTMLInputElement).value
-            }]`;
-          if (el.tagName === "IMG")
+          let text = "";
+          if (el.tagName === "IMG") {
             text = `[Image: ${
               (el as HTMLImageElement).alt || (el as HTMLImageElement).src
             }]`;
+          } else {
+            text = el.textContent?.trim() || "";
+          }
 
-          // Generate a robust selector
+          // Generate a simple selector
           let selector = "";
-
-          // Priority 1: data-testid / data-test
-          const testId =
-            el.getAttribute("data-testid") || el.getAttribute("data-test");
-          if (testId) {
-            selector = `[data-test="${testId}"]`;
-          } else if (el.id) {
-            // Priority 2: ID
+          if (el.id) {
             selector = `#${el.id}`;
           } else if (el.tagName === "A" && (el as HTMLAnchorElement).href) {
-            // Priority 3: Href for links
             const href = (el as HTMLAnchorElement).getAttribute("href");
             if (href) selector = `a[href="${href}"]`;
-          } else if (el.getAttribute("role")) {
-            // Priority 4: Role
-            selector = `[role="${el.getAttribute("role")}"]`;
-          } else if (el.tagName === "BUTTON" && text) {
-            // Priority 5: Button text (Playwright specific, but we'll return a pseudo-selector or xpath/text)
-            // For simplicity, let's stick to unique attributes or class combo
-            if (el.className)
-              selector = `${el.tagName.toLowerCase()}.${el.className
-                .split(" ")
-                .join(".")}`;
-            else selector = el.tagName.toLowerCase();
+          } else if (el.className) {
+            selector = `${el.tagName.toLowerCase()}.${el.className
+              .split(" ")
+              .join(".")}`;
           } else {
-            if (el.className)
-              selector = `${el.tagName.toLowerCase()}.${el.className
-                .split(" ")
-                .join(".")}`;
-            else selector = el.tagName.toLowerCase();
+            selector = el.tagName.toLowerCase();
           }
 
           return {
             tag: el.tagName.toLowerCase(),
             text: text.substring(0, 100), // truncation
-            selector: selector, // Note: this selector is rudimentary
+            selector: selector,
             visible: true,
           };
         })
@@ -395,52 +368,6 @@ What is your next move? Response MUST be a raw JSON object.
           await this.page.goto(targetUrl);
           return `Navigated to ${targetUrl}`;
 
-        case "click":
-          logger.log(
-            `Attempting click on: ${params.selector} (Text hint: ${
-              params.text || "N/A"
-            })`
-          );
-          try {
-            await this.page.click(params.selector, { timeout: 2000 });
-            // Record visit
-            const key = `${this.page.url()}::${params.selector}`;
-            this.state.visitedSelectors.add(key);
-            logger.log(`Click SUCCESS: ${params.selector}`);
-            return `Clicked ${params.selector}`;
-          } catch (e) {
-            // Fallback 1: Try adding the tag name if it was missing or simplistic
-            try {
-              logger.warn(
-                `Click failed for ${params.selector}, trying loose match...`
-              );
-              // If selector is just a class or simple string, maybe try text?
-              if (params.text || params.selector) {
-                const textToFind = params.text || params.selector; // Agent might pass text as selector
-                // Playwright's getByText is powerful
-                const el = this.page
-                  .getByText(textToFind, { exact: false })
-                  .first();
-                if ((await el.count()) > 0 && (await el.isVisible())) {
-                  await el.click();
-                  const successMsg = `Click SUCCESS (by text): "${textToFind}"`;
-                  logger.log(successMsg);
-                  return successMsg;
-                }
-              }
-            } catch (innerE) {
-              // logger.error(`Click fallback failed: ${innerE}`);
-            }
-            logger.error(`Click failed for ${params.selector}`);
-            return `Click failed for ${params.selector}`;
-          }
-          break;
-
-        case "type":
-          logger.log(`Typing into ${params.selector}: "${params.text}"`);
-          await this.page.fill(params.selector, params.text);
-          return `Typed "${params.text}" into ${params.selector}`;
-
         case "find_broken_images":
           this.state.scannedUrls.add(this.page.url());
           const findings = await findBrokenImages(this.page);
@@ -448,27 +375,11 @@ What is your next move? Response MUST be a raw JSON object.
             this.recordUniqueFinding({
               type: "broken_image",
               description: `Broken image: ${f.src} (Reason: ${f.reason})`,
-              severity: "low",
               url: this.page.url(),
               selector: f.selector,
             });
           }
           return `Found ${findings.length} broken images`;
-
-        case "record_finding":
-          // Capture screenshot for finding
-          const path = `screenshots/bug-${Date.now()}.png`;
-          await this.page.screenshot({ path: `uploads/${path}` });
-
-          this.recordUniqueFinding({
-            type: "bug",
-            description: params.description,
-            severity: params.severity || "medium",
-            url: this.page.url(),
-            screenshot: path,
-            selector: params.selector, // Allow agent to specify selector for general findings
-          });
-          return `Recorded finding: ${params.description}`;
 
         case "finish":
           logger.log("LLM decided to finish.");
