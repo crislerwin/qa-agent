@@ -1,5 +1,5 @@
 import { type Page } from "playwright-core";
-import { createLogger } from "../../utils/logger.ts";
+import { createLogger } from "../utils/logger.ts";
 
 const logger = createLogger("tool:broken-images");
 
@@ -32,10 +32,36 @@ export async function findBrokenImages(
       const rect = img.getBoundingClientRect();
 
       // Helper to get a simple selector (best effort)
+      // Helper to get a robust selector
       const getSelector = (el: Element): string => {
         if (el.id) return `#${el.id}`;
-        if (el.className) return `.${el.className.split(" ").join(".")}`;
-        return el.tagName.toLowerCase();
+
+        let path = el.tagName.toLowerCase();
+        if (el.className) {
+          path += `.${el.className.split(" ").join(".")}`;
+        }
+
+        const parent = el.parentElement;
+        if (parent) {
+          // 1. Add sibling index for uniqueness within parent
+          const siblings = Array.from(parent.children).filter(
+            (c) => c.tagName === el.tagName
+          );
+          if (siblings.length > 1) {
+            const index = siblings.indexOf(el) + 1;
+            path += `:nth-of-type(${index})`;
+          }
+
+          // 2. Prepend parent selector for uniqueness across page structure
+          let parentPath = parent.tagName.toLowerCase();
+          if (parent.id) {
+            parentPath = `#${parent.id}`;
+          } else if (parent.className) {
+            parentPath += `.${parent.className.split(" ").join(".")}`;
+          }
+          path = `${parentPath} > ${path}`;
+        }
+        return path;
       };
 
       const result = {

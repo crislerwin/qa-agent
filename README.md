@@ -18,6 +18,8 @@ This agent autonomously navigates a target web application (specifically [Practi
 
 The agent follows a cyclical **Observe-Think-Act** architecture:
 
+![LLM Architecture](assets/llm-arch.png)
+
 ```mermaid
 graph TD
     Start([Start]) --> Init[Initialize Browser & Agent]
@@ -42,9 +44,6 @@ graph TD
     subgraph Tools
     FindBroken[find_broken_images]
     Navigate
-    Click
-    Type
-    RecordFinding[record_finding]
     end
 
     Execute -.-> Tools
@@ -52,12 +51,23 @@ graph TD
 
 ### Components
 
-1.  **Core Agent (`src/agent/core.ts`)**: Manages the browser instance, state (visited URLs, findings), and the main exploration loop.
-2.  **CLI (`src/agent/cli.ts`)**: Provides the user interface, prompting for the target URL and displaying status.
-3.  **Tools**:
-    - `navigate`, `click`, `type`: Standard browser interactions.
+1.  **Core Agent (`src/agents/exploratory.ts`)**: Manages the browser instance, state (visited URLs, findings), and the main exploration loop.
+2.  **CLI (`src/index.ts`)**: Provides the user interface, prompting for the target URL and displaying status.
+3.  **Tools (`src/tools/`)**:
+    - `navigate`: Standard browser interactions.
     - `find_broken_images`: Custom tool to scan for 404s and invalid images.
-    - `record_finding`: Logs discovered bugs.
+
+### Project Structure (2026 Agent Architecture)
+
+```
+src/
+├── agents/             # Logic for specialized agent types (ExploratoryAgent)
+├── tools/              # Reusable functions (Action Layer)
+├── services/           # External API wrappers (LLM layer)
+├── types/              # Global TypeScript interfaces
+├── utils/              # Helper functions (logging, reporting)
+└── index.ts            # Main entry point for Bun runtime
+```
 
 ## ⚙️ Design Decisions & Trade-offs
 
