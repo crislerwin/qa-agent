@@ -11,7 +11,7 @@ This agent autonomously navigates a target web application (specifically [Practi
 - **Language:** TypeScript
 - **Browser Automation:** Playwright
 - **LLM Orchestration:** LangChain
-- **CLI/UX:** @clack/prompts
+- **CLI/UX:** @clack/prompts (Enhanced with "Agent Progress" Dashboard & Verbose Mode)
 - **Runtime:** Bun
 
 ## 🏗️ Architecture
@@ -21,7 +21,9 @@ The agent follows a cyclical **Observe-Think-Act** architecture:
 ```mermaid
 graph TD
     Start([Start]) --> Init[Initialize Browser & Agent]
-    Init --> Nav[Navigate to Base URL]
+    Init --> Crawl[Pre-Execution Crawl using Playwright]
+    Crawl --> Populate[Populate To-Do Queue]
+    Populate --> Nav[Navigate to Base URL]
     Nav --> Loop{Exploration Loop}
 
     Loop --> Observe[1. Observe]
@@ -60,8 +62,9 @@ graph TD
 ## ⚙️ Design Decisions & Trade-offs
 
 - **Playwright**: Chosen for its reliability and robust handling of modern web apps (waiting for elements, network interception) compared to Puppeteer or Selenium.
+- **Pre-Execution Crawler**: Instead of starting blind, the agent uses a lightweight spider to pre-populate its queue with all discoverable links (handling SPA routes), ensuring broad coverage before visual inspection begins.
 - **Simplified DOM Snapshot**: Instead of feeding the raw HTML to the LLM (which consumes too many tokens and confuses the model), we process the DOM into a simplified JSON structure of interactive elements. This strikes a balance between providing enough context and maintaining performance/cost efficiency.
-- **Human-in-the-Loop**: Added a CLI step to allow the user to guide the agent or stop exploration manually, ensuring control over the autonomous process.
+- **Human-in-the-Loop & Autonomous Modes**: Added a CLI step to allow the user to guide the agent or stop exploration manually, while also offering a fully autonomous mode for unattended execution.
 
 ## 📦 Setup Instructions
 
