@@ -1,6 +1,7 @@
 import { describe, expect, test, beforeAll, afterAll } from "bun:test";
 import { chromium, type Browser, type Page } from "playwright-core";
-import { findBrokenImages } from "../../src/agent/tools/broken-images";
+import { join } from "path";
+import { findBrokenImages } from "../../src/tools/broken-images.ts";
 
 describe("findBrokenImages Tool", () => {
   let browser: Browser;

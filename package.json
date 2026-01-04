@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "cli": "bun --watch run src/agent/cli.ts",
+    "cli": "bun run src/index.ts",
     "build": "bun build src/agent/cli.ts --outdir ./dist --target bun --external playwright-core",
     "start": "bun run dist/cli.js",
     "test": "bun test"

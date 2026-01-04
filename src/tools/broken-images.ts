@@ -1,5 +1,5 @@
 import { type Page } from "playwright-core";
-import { createLogger } from "../../utils/logger.ts";
+import { createLogger } from "../utils/logger.ts";
 
 const logger = createLogger("tool:broken-images");
 

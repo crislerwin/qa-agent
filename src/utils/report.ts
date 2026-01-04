@@ -1,4 +1,4 @@
-import { type AgentFinding } from "../core.ts";
+import { type AgentFinding } from "../types/index.ts";
 import { promises as fs } from "fs";
 
 export async function generateReport(
@@ -30,15 +30,12 @@ Pages Explored: ${visitedUrls?.length || 0}
     content += "No findings recorded.\n";
   } else {
     findings.forEach((finding, index) => {
-      content += `### ${index + 1}. [${finding.severity.toUpperCase()}] ${
-        finding.type
-      }
+      content += `### ${index + 1}. [${finding.type.toUpperCase()}]
 **URL**: ${finding.url}
 **Description**: ${finding.description}
 `;
-      if (finding.screenshot) {
-        // Relative path for markdown if viewing locally or served
-        content += `**Screenshot**: ![](${finding.screenshot})\n`;
+      if (finding.selector) {
+        content += `**Selector**: \`${finding.selector}\`\n`;
       }
       content += `\n---\n`;
     });

@@ -1,9 +1,10 @@
-import { ExploratoryAgent, type AgentConfig } from "./core.ts";
-import { createLogger, setVerbose } from "../utils/logger.ts";
+import { ExploratoryAgent } from "./agents/exploratory.ts";
+import type { AgentConfig } from "./types/index.ts";
+import { createLogger, setVerbose } from "./utils/logger.ts";
 import { generateReport } from "./utils/report.ts";
 import * as clack from "@clack/prompts";
 
-const logger = createLogger("agent:cli");
+const logger = createLogger("cli");
 
 async function main() {
   clack.intro(`✨ Welcome to the Exploratory Agent CLI ✨`);

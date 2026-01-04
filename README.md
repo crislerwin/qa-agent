@@ -51,11 +51,23 @@ graph TD
 
 ### Components
 
-1.  **Core Agent (`src/agent/core.ts`)**: Manages the browser instance, state (visited URLs, findings), and the main exploration loop.
-2.  **CLI (`src/agent/cli.ts`)**: Provides the user interface, prompting for the target URL and displaying status.
-3.  **Tools**:
+1.  **Core Agent (`src/agents/exploratory.ts`)**: Manages the browser instance, state (visited URLs, findings), and the main exploration loop.
+2.  **CLI (`src/index.ts`)**: Provides the user interface, prompting for the target URL and displaying status.
+3.  **Tools (`src/tools/`)**:
     - `navigate`: Standard browser interactions.
     - `find_broken_images`: Custom tool to scan for 404s and invalid images.
+
+### Project Structure (2026 Agent Architecture)
+
+```
+src/
+├── agents/             # Logic for specialized agent types (ExploratoryAgent)
+├── tools/              # Reusable functions (Action Layer)
+├── services/           # External API wrappers (LLM layer)
+├── types/              # Global TypeScript interfaces
+├── utils/              # Helper functions (logging, reporting)
+└── index.ts            # Main entry point for Bun runtime
+```
 
 ## ⚙️ Design Decisions & Trade-offs
 
