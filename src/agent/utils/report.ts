@@ -2,22 +2,29 @@ import { type AgentFinding } from "../core.ts";
 import { promises as fs } from "fs";
 
 export async function generateReport(
-  findings: AgentFinding[]
+  findings: AgentFinding[],
+  visitedUrls?: string[]
 ): Promise<string> {
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const filename = `report-${timestamp}.md`;
   const path = `reports/${filename}`;
-
   let content = `# Exploratory Testing Report
 Date: ${new Date().toLocaleString()}
 Target: with-bugs.practicesoftwaretesting.com
 
 ## Summary
 Total Findings: ${findings.length}
-
-## Findings
-
+Pages Explored: ${visitedUrls?.length || 0}
 `;
+
+  if (visitedUrls && visitedUrls.length > 0) {
+    content += `\n## Navigated Pages\n`;
+    visitedUrls.forEach((url) => {
+      content += `- ${url}\n`;
+    });
+  }
+
+  content += `\n## Findings\n\n`;
 
   if (findings.length === 0) {
     content += "No findings recorded.\n";

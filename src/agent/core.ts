@@ -7,6 +7,7 @@ import {
   findBrokenImages,
   type BrokenImageFinding,
 } from "./tools/broken-images.ts";
+import { crawlSite } from "./tools/crawler.ts";
 
 const logger = createLogger("agent:core");
 
@@ -16,12 +17,17 @@ export interface AgentFinding {
   severity: "low" | "medium" | "high" | "critical";
   url: string;
   screenshot?: string; // path to screenshot
+  selector?: string; // unique element identifier (e.g. css selector)
 }
 
 export interface AgentState {
   visitedUrls: Set<string>;
   findings: AgentFinding[];
   steps: number;
+  visitedSelectors: Set<string>; // Dedup clicks: URL + Selector
+  history: { action: string; reason: string; url: string; result?: string }[]; // Short-term memory
+  todoQueue: string[]; // URLs to explore
+  scannedUrls: Set<string>; // URLs that have been scanned for broken images
 }
 
 export interface AgentConfig {
@@ -38,6 +44,10 @@ export class ExploratoryAgent {
     visitedUrls: new Set(),
     findings: [],
     steps: 0,
+    visitedSelectors: new Set(),
+    history: [],
+    todoQueue: [],
+    scannedUrls: new Set(),
   };
   private config: AgentConfig;
 
@@ -48,13 +58,22 @@ export class ExploratoryAgent {
 
   async start() {
     logger.log("Starting Exploratory Agent...");
+
     this.browser = await chromium.launch({
       headless: true, // Configurable later
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
     this.page = await this.browser.newPage();
 
-    // Initial navigation
+    // Pre-execution Crawl (using Playwright)
+    logger.log("Starting Pre-execution Crawl...");
+    const discoveredUrls = await crawlSite(this.page, this.config.baseUrl);
+    this.state.todoQueue = [...discoveredUrls];
+    logger.log(
+      `Queue initialized with ${discoveredUrls.length} pages from crawl.`
+    );
+
+    // Initial navigation back to base
     await this.page.goto(this.config.baseUrl);
     logger.log(`Navigated to ${this.config.baseUrl}`);
   }
@@ -78,6 +97,12 @@ export class ExploratoryAgent {
     action: string;
     reason: string;
     completed: boolean;
+    stats?: {
+      currentUrl: string;
+      queueLength: number;
+      visitedCount: number;
+      findingsCount: number;
+    };
   }> {
     if (!this.page) throw new Error("Agent not started");
     this.state.steps++;
@@ -154,41 +179,61 @@ export class ExploratoryAgent {
     });
 
     // 2. Think
+    const historySlice = this.state.history.slice(-3);
+    const historyStartIndex = Math.max(0, this.state.history.length - 3);
+    const recentHistory = historySlice
+      .map(
+        (h, i) =>
+          `Step ${historyStartIndex + i + 1}: ${h.action} (Reason: ${
+            h.reason
+          }) -> Result: ${h.result || "N/A"}`
+      )
+      .join("\n");
+
+    const isScanned = this.state.scannedUrls.has(url);
+
     let systemPrompt = `
 You are an Exploratory Testing Agent. Your goal is to explore the web application at ${
       this.config.baseUrl
     } and find bugs.
 Target: "with-bugs.practicesoftwaretesting.com" - an e-commerce site with intentional bugs.
 
-Goals:
-1. Navigate through different pages (Product lists, details, cart, checkout, login).
-2. Look for visual issues, error messages, and broken functionality.
-3. Use the available tools to verify hypotheses.
+STRATEGY: "Execute Map"
+1. **Execution**: You have a pre-filled 'To-Do Queue' of pages to test.
+   a. Pick the next URL from 'To-Do Queue'.
+   b. 'navigate' to it.
+   c. 'find_broken_images' on that page.
+   d. Repeat until queue is empty.
+2. **Completion**: 
+   - If 'To-Do Queue' is empty AND 'Page Scanned for Images' is YES, you MUST call 'finish()'.
+   - If you tried 'add_to_queue' but added 0 items (see "Result" in memory) AND queue is still empty, you MUST call 'finish()'.
 
 Current State:
 - URL: ${url}
-- Title: ${title}
-- Visited: ${Array.from(this.state.visitedUrls).join(", ")}
-- Findings: ${this.state.findings.length} bugs found so far.
+- Visited URLs count: ${this.state.visitedUrls.size}
+- To-Do Queue: ${JSON.stringify(this.state.todoQueue)}
+- Page Scanned for Images: ${isScanned ? "YES" : "NO"}
 
-Exploration History:
-(You should remember what you have tested)
+Memory (Last 3 Steps):
+${recentHistory || "None"}
 
 Tools Available:
 - navigate(url): Go to a URL.
-- click(selector): Click an element.
-- type(selector, text): Type into an input.
+- add_to_queue(urls): Add a list of absolute URLs to your plan. Example params: { "urls": ["https://..."] }
 - find_broken_images(): Scan current page for broken images.
-- record_finding(description, severity): Log a bug you found.
-- finish(): Stop exploration.
+- finish(): Stop exploration (only when Queue is empty).
 
 INSTRUCTIONS:
 - Return a JSON object with "action", "params", and "reason".
-- "action" must be one of the tools above.
-- "reason" must explain why you are doing this (e.g., "Checking if cart updates correctly").
-- Prioritize high-value flows (Checkout, Login).
-- If you see an error message on screen, record it as a finding!
-    `;
+- "reason" must explain your progress through the queue.
+  **IMPORTANT**: The response must be valid JSON. Escape newlines.
+- **CRITICAL**: If you see 'add_to_queue' in your memory but the queue is empty, do NOT call it again. Move to 'navigate'.
+- **CRITICAL**: If 'Page Scanned for Images' is YES, you MUST NOT scan again. Pick a URL from the Queue and 'navigate'.
+- **CRITICAL**: If your last action was 'add_to_queue' and the result was "Added 0 new URLs":
+  - If the Queue is EMPTY -> STOP immediately and call 'finish()'.
+  - If the Queue is NOT EMPTY -> You MUST call 'navigate' to the next URL. Do NOT call 'add_to_queue' again.
+- **CRITICAL**: Do NOT call 'add_to_queue' immediately after 'find_broken_images'. Navigate first.
+`;
 
     if (guidance) {
       systemPrompt += `\n\n### CRITICAL USER INSTRUCTION ###\nThe user has provided specific guidance:\n"${guidance}"\n\nYou MUST prioritize this instruction above all else. Drop your current plan if necessary and execute the user's request immediately in this step.\n#################################`;
@@ -281,22 +326,75 @@ What is your next move? Response MUST be a raw JSON object.
     // 3. Act
     await this.executeAction(parsed.action, parsed.params);
 
+    this.state.history.push({
+      action: parsed.action,
+      reason: parsed.reason,
+      url: this.page.url(),
+    });
+
+    // Capture stats for UI
+    const stats = {
+      currentUrl: this.page.url(),
+      queueLength: this.state.todoQueue.length,
+      visitedCount: this.state.visitedUrls.size,
+      findingsCount: this.state.findings.length,
+    };
+
     return {
       action: parsed.action,
       reason: parsed.reason,
       completed: parsed.action === "finish",
+      stats,
     };
   }
 
-  private async executeAction(action: string, params: any) {
+  private async executeAction(
+    action: string,
+    params: any
+  ): Promise<string | undefined> {
     if (!this.page) return;
 
     try {
       switch (action) {
+        case "add_to_queue":
+          const newUrls = Array.isArray(params) ? params : params.urls || [];
+          let addedCount = 0;
+          const baseUrlObj = new URL(this.config.baseUrl);
+          for (const u of newUrls) {
+            try {
+              const urlObj = new URL(u, this.page.url()); // Resolve relative to current page
+              const absoluteUrl = urlObj.href;
+
+              if (urlObj.hostname !== baseUrlObj.hostname) {
+                logger.log(`Skipping external URL: ${absoluteUrl}`);
+                continue;
+              }
+
+              if (
+                !this.state.visitedUrls.has(absoluteUrl) &&
+                !this.state.todoQueue.includes(absoluteUrl)
+              ) {
+                this.state.todoQueue.push(absoluteUrl);
+                addedCount++;
+              }
+            } catch (e) {
+              logger.warn(`Invalid URL to queue: ${u}`);
+            }
+          }
+          const msg = `Added ${addedCount} new URLs to queue. Total Queue: ${this.state.todoQueue.length}`;
+          logger.log(msg);
+          return msg;
+
         case "navigate":
-          logger.log(`Navigating to: ${params.url}`);
-          await this.page.goto(params.url);
-          break;
+          // If we navigate from queue, remove it from queue
+          const targetUrl = params.url;
+          logger.log(`Navigating to: ${targetUrl}`);
+          this.state.todoQueue = this.state.todoQueue.filter(
+            (u) => u !== targetUrl
+          ); // Remove from queue
+          await this.page.goto(targetUrl);
+          return `Navigated to ${targetUrl}`;
+
         case "click":
           logger.log(
             `Attempting click on: ${params.selector} (Text hint: ${
@@ -305,7 +403,11 @@ What is your next move? Response MUST be a raw JSON object.
           );
           try {
             await this.page.click(params.selector, { timeout: 2000 });
+            // Record visit
+            const key = `${this.page.url()}::${params.selector}`;
+            this.state.visitedSelectors.add(key);
             logger.log(`Click SUCCESS: ${params.selector}`);
+            return `Clicked ${params.selector}`;
           } catch (e) {
             // Fallback 1: Try adding the tag name if it was missing or simplistic
             try {
@@ -321,61 +423,103 @@ What is your next move? Response MUST be a raw JSON object.
                   .first();
                 if ((await el.count()) > 0 && (await el.isVisible())) {
                   await el.click();
-                  logger.log(`Click SUCCESS (by text): "${textToFind}"`);
-                  return;
+                  const successMsg = `Click SUCCESS (by text): "${textToFind}"`;
+                  logger.log(successMsg);
+                  return successMsg;
                 }
               }
             } catch (innerE) {
-              logger.error(`Click fallback failed: ${innerE}`);
+              // logger.error(`Click fallback failed: ${innerE}`);
             }
             logger.error(`Click failed for ${params.selector}`);
+            return `Click failed for ${params.selector}`;
           }
           break;
+
         case "type":
           logger.log(`Typing into ${params.selector}: "${params.text}"`);
           await this.page.fill(params.selector, params.text);
-          break;
+          return `Typed "${params.text}" into ${params.selector}`;
+
         case "find_broken_images":
+          this.state.scannedUrls.add(this.page.url());
           const findings = await findBrokenImages(this.page);
           for (const f of findings) {
-            this.state.findings.push({
+            this.recordUniqueFinding({
               type: "broken_image",
               description: `Broken image: ${f.src} (Reason: ${f.reason})`,
               severity: "low",
               url: this.page.url(),
+              selector: f.selector,
             });
           }
-          break;
+          return `Found ${findings.length} broken images`;
+
         case "record_finding":
-          this.state.findings.push({
+          // Capture screenshot for finding
+          const path = `screenshots/bug-${Date.now()}.png`;
+          await this.page.screenshot({ path: `uploads/${path}` });
+
+          this.recordUniqueFinding({
             type: "bug",
             description: params.description,
             severity: params.severity || "medium",
             url: this.page.url(),
-            // Capture screenshot
+            screenshot: path,
+            selector: params.selector, // Allow agent to specify selector for general findings
           });
-          // Capture screenshot for finding
-          const path = `screenshots/bug-${Date.now()}.png`;
-          await this.page.screenshot({ path: `uploads/${path}` });
-          // update finding ref
-          const lastFinding =
-            this.state.findings[this.state.findings.length - 1];
-          if (lastFinding) {
-            lastFinding.screenshot = path;
-          }
-          break;
+          return `Recorded finding: ${params.description}`;
+
         case "finish":
           logger.log("LLM decided to finish.");
-          break;
+          return "Finished";
         default:
           logger.warn(`Unknown action: ${action}`);
+          return `Unknown action: ${action}`;
       }
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Action execution failed: ${error}`);
+      return `Action failed: ${error.message}`;
+    }
+  }
+
+  private recordUniqueFinding(finding: AgentFinding) {
+    // Advanced Deduplication:
+    // If it's a broken image, we check if the SAME src + selector has been reported ANYWHERE.
+    // This handles header/footer images (same selector, same src, different page).
+
+    let exists = false;
+
+    if (finding.type === "broken_image" && finding.selector) {
+      // Check if this specific element (selector + description/src) was already found
+      // We assume 'description' contains the src or unique error details
+      exists = this.state.findings.some(
+        (f) =>
+          f.type === "broken_image" &&
+          f.selector === finding.selector &&
+          f.description === finding.description // Description usually contains the src from findBrokenImages
+      );
+    } else {
+      // Standard deduplication (Exact match on this page)
+      const signature = `${finding.type}:${finding.description}:${finding.url}`;
+      exists = this.state.findings.some(
+        (f) => `${f.type}:${f.description}:${f.url}` === signature
+      );
+    }
+
+    if (!exists) {
+      this.state.findings.push(finding);
+      logger.info(`Recorded NEW finding: ${finding.description}`);
+    } else {
+      logger.info(`Skipped DUPLICATE finding: ${finding.description}`);
     }
   }
 
   getFindings() {
     return this.state.findings;
+  }
+
+  getVisitedUrls() {
+    return Array.from(this.state.visitedUrls);
   }
 }

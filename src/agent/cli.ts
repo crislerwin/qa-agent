@@ -1,5 +1,5 @@
 import { ExploratoryAgent, type AgentConfig } from "./core.ts";
-import { createLogger } from "../utils/logger.ts";
+import { createLogger, setVerbose } from "../utils/logger.ts";
 import { generateReport } from "./utils/report.ts";
 import * as clack from "@clack/prompts";
 
@@ -21,6 +21,26 @@ async function main() {
     clack.outro("Operation cancelled.");
     process.exit(0);
   }
+
+  // 0. Configuration: Autonomous Mode
+  const isAutonomous = await clack.confirm({
+    message: "Run in Autonomous Mode? (No user confirmation between steps)",
+    initialValue: false,
+  });
+
+  if (clack.isCancel(isAutonomous)) {
+    clack.outro("Operation cancelled.");
+    process.exit(0);
+  }
+
+  // 0b. Configuration: Verbose Mode
+  const isVerbose = await clack.confirm({
+    message: "Enable Verbose Logging? (Show detailed tool outputs)",
+    initialValue: false,
+  });
+
+  // Set global log level
+  setVerbose(isVerbose as boolean);
 
   const config: AgentConfig = {
     baseUrl: baseUrl as string,
@@ -46,15 +66,66 @@ async function main() {
 
       s.stop(`Step Complete: ${result.action}`);
 
-      clack.note(
-        `Reason: ${result.reason}\nAction: ${result.action}`,
-        "Agent Status"
-      );
+      // Helper to wrap text at a specific length to prevent UI breakage
+      const wrapText = (str: string, maxWidth: number = 80): string => {
+        if (!str) return "";
+        const words = str.split(" ");
+        if (words.length === 0) return "";
+
+        let lines: string[] = [];
+        let currentLine = words[0] || "";
+
+        for (let i = 1; i < words.length; i++) {
+          const word = words[i] || "";
+          if (currentLine.length + 1 + word.length <= maxWidth) {
+            currentLine += " " + word;
+          } else {
+            lines.push(currentLine);
+            currentLine = word;
+          }
+        }
+        lines.push(currentLine);
+        return lines.join("\n");
+      };
+
+      if (result.stats) {
+        const { currentUrl, queueLength, visitedCount, findingsCount } =
+          result.stats;
+        clack.note(
+          `Current Page: ${currentUrl}
+Queue Size:   ${queueLength} items pending
+Discovered:   ${visitedCount} pages visited
+Issues Found: ${findingsCount}
+
+Action:
+${wrapText(result.action, 80)}
+
+Reason:
+${wrapText(result.reason, 80)}`,
+          "Agent Progress"
+        );
+      } else {
+        clack.note(
+          `Reason:
+${wrapText(result.reason, 80)}
+
+Action:
+${wrapText(result.action, 80)}`,
+          "Agent Status"
+        );
+      }
 
       if (result.completed) {
         clack.log.success("Agent has decided to finish exploration.");
         running = false;
         break;
+      }
+
+      if (isAutonomous) {
+        // In autonomous mode, we automatically continue.
+        // We might want a small delay so the user can see what's happening or Ctrl+C if needed.
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        continue;
       }
 
       // 2. Human-in-the-loop
@@ -95,7 +166,10 @@ async function main() {
 
     // Generate Report
     s.start("Generating Report...");
-    const reportPath = await generateReport(agent.getFindings());
+    const reportPath = await generateReport(
+      agent.getFindings(),
+      agent.getVisitedUrls()
+    );
     s.stop("Report Generated");
 
     clack.log.success(`Report saved to: ${reportPath}`);
