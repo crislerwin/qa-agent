@@ -18,6 +18,8 @@ This agent autonomously navigates a target web application (specifically [Practi
 
 The agent follows a cyclical **Observe-Think-Act** architecture:
 
+![LLM Architecture](assets/llm-arch.png)
+
 ```mermaid
 graph TD
     Start([Start]) --> Init[Initialize Browser & Agent]
