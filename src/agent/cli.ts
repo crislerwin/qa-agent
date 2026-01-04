@@ -89,11 +89,13 @@ async function main() {
       };
 
       if (result.stats) {
-        const { currentUrl, queueLength, visitedCount } = result.stats;
+        const { currentUrl, queueLength, visitedCount, findingsCount } =
+          result.stats;
         clack.note(
           `Current Page: ${currentUrl}
 Queue Size:   ${queueLength} items pending
 Discovered:   ${visitedCount} pages visited
+Issues Found: ${findingsCount}
 
 Action:
 ${wrapText(result.action, 80)}

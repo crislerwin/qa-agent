@@ -101,6 +101,7 @@ export class ExploratoryAgent {
       currentUrl: string;
       queueLength: number;
       visitedCount: number;
+      findingsCount: number;
     };
   }> {
     if (!this.page) throw new Error("Agent not started");
@@ -336,6 +337,7 @@ What is your next move? Response MUST be a raw JSON object.
       currentUrl: this.page.url(),
       queueLength: this.state.todoQueue.length,
       visitedCount: this.state.visitedUrls.size,
+      findingsCount: this.state.findings.length,
     };
 
     return {
