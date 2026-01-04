@@ -97,6 +97,11 @@ export class ExploratoryAgent {
     action: string;
     reason: string;
     completed: boolean;
+    stats?: {
+      currentUrl: string;
+      queueLength: number;
+      visitedCount: number;
+    };
   }> {
     if (!this.page) throw new Error("Agent not started");
     this.state.steps++;
@@ -223,7 +228,10 @@ INSTRUCTIONS:
   **IMPORTANT**: The response must be valid JSON. Escape newlines.
 - **CRITICAL**: If you see 'add_to_queue' in your memory but the queue is empty, do NOT call it again. Move to 'navigate'.
 - **CRITICAL**: If 'Page Scanned for Images' is YES, you MUST NOT scan again. Pick a URL from the Queue and 'navigate'.
-- **CRITICAL**: If your last action was 'add_to_queue' and the result was "Added 0 new URLs", STOP immediately and call 'finish()'.
+- **CRITICAL**: If your last action was 'add_to_queue' and the result was "Added 0 new URLs":
+  - If the Queue is EMPTY -> STOP immediately and call 'finish()'.
+  - If the Queue is NOT EMPTY -> You MUST call 'navigate' to the next URL. Do NOT call 'add_to_queue' again.
+- **CRITICAL**: Do NOT call 'add_to_queue' immediately after 'find_broken_images'. Navigate first.
 `;
 
     if (guidance) {
@@ -323,10 +331,18 @@ What is your next move? Response MUST be a raw JSON object.
       url: this.page.url(),
     });
 
+    // Capture stats for UI
+    const stats = {
+      currentUrl: this.page.url(),
+      queueLength: this.state.todoQueue.length,
+      visitedCount: this.state.visitedUrls.size,
+    };
+
     return {
       action: parsed.action,
       reason: parsed.reason,
       completed: parsed.action === "finish",
+      stats,
     };
   }
 

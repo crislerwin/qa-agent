@@ -1,5 +1,5 @@
 import { ExploratoryAgent, type AgentConfig } from "./core.ts";
-import { createLogger } from "../utils/logger.ts";
+import { createLogger, setVerbose } from "../utils/logger.ts";
 import { generateReport } from "./utils/report.ts";
 import * as clack from "@clack/prompts";
 
@@ -33,6 +33,15 @@ async function main() {
     process.exit(0);
   }
 
+  // 0b. Configuration: Verbose Mode
+  const isVerbose = await clack.confirm({
+    message: "Enable Verbose Logging? (Show detailed tool outputs)",
+    initialValue: false,
+  });
+
+  // Set global log level
+  setVerbose(isVerbose as boolean);
+
   const config: AgentConfig = {
     baseUrl: baseUrl as string,
     maxSteps: 10,
@@ -57,8 +66,14 @@ async function main() {
 
       s.stop(`Step Complete: ${result.action}`);
 
+      const truncate = (str: string, max: number) =>
+        str.length > max ? str.substring(0, max) + "..." : str;
+
       clack.note(
-        `Reason: ${result.reason}\nAction: ${result.action}`,
+        `Reason: ${truncate(result.reason, 300)}\nAction: ${truncate(
+          result.action,
+          100
+        )}`,
         "Agent Status"
       );
 
