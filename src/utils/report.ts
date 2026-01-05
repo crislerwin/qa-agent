@@ -39,6 +39,17 @@ Pages Explored: ${visitedUrls?.length || 0}
 **URL**: ${finding.url}
 **Description**: ${finding.description}
 `;
+      if (finding.occurrences && finding.occurrences.length > 0) {
+        content += `**Additional Occurrences**: ${finding.occurrences.length} other pages\n`;
+        const displayedOccurrences = finding.occurrences.slice(0, 5);
+        displayedOccurrences.forEach((occ) => {
+          content += `- ${occ}\n`;
+        });
+        if (finding.occurrences.length > 5) {
+          content += `- ...and ${finding.occurrences.length - 5} more\n`;
+        }
+      }
+
       if (finding.selector) {
         content += `**Selector**: \`${finding.selector}\`\n`;
       }

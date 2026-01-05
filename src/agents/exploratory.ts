@@ -622,23 +622,43 @@ What is your next move? Response MUST be a raw JSON object.
 
   private recordUniqueFinding(finding: AgentFinding) {
     // Advanced Deduplication:
-    let exists = false;
+    let existingFinding: AgentFinding | undefined;
 
-    if (finding.type === "broken_image" && finding.selector) {
-      exists = this.state.findings.some(
-        (f) =>
-          f.type === "broken_image" &&
-          f.selector === finding.selector &&
-          f.description === finding.description
+    // Strict matching criteria
+    // Same type, same description
+    // If selector exists, it must match
+    existingFinding = this.state.findings.find(
+      (f) =>
+        f.type === finding.type &&
+        f.description === finding.description &&
+        f.selector === finding.selector
+    );
+
+    if (existingFinding) {
+      // It's a duplicate. Aggregate it.
+      existingFinding.count = (existingFinding.count || 1) + 1;
+
+      if (!existingFinding.occurrences) {
+        existingFinding.occurrences = [];
+      }
+
+      // Add current URL to occurrences if not already there
+      if (
+        !existingFinding.occurrences.includes(finding.url) &&
+        existingFinding.url !== finding.url
+      ) {
+        existingFinding.occurrences.push(finding.url);
+      }
+
+      logger.info(
+        `Aggregated duplicate finding: ${finding.description} (Count: ${existingFinding.count})`
       );
+
+      // Update severity if new instance is more critical? (Optional, skipping for now)
     } else {
-      // Standard description match
-      exists = this.state.findings.some(
-        (f) => f.description === finding.description && f.url === finding.url
-      );
-    }
-
-    if (!exists) {
+      // It's new
+      finding.count = 1;
+      // finding.occurrences is undefined initially
       this.state.findings.push(finding);
       logger.info(`Recorded NEW finding: ${finding.description}`);
     }
