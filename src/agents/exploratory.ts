@@ -8,6 +8,9 @@ import {
   type BrokenImageFinding,
 } from "../tools/broken-images.ts";
 import { crawlSite } from "../tools/crawler.ts";
+import { ConsoleMonitor } from "../tools/console-errors.ts";
+import { NetworkMonitor } from "../tools/network-errors.ts";
+import { findValidationErrors } from "../tools/validation-errors.ts";
 import type { AgentConfig, AgentFinding, AgentState } from "../types/index.ts";
 
 const logger = createLogger("agent:exploratory");
@@ -16,6 +19,8 @@ export class ExploratoryAgent {
   private browser: Browser | null = null;
   private page: Page | null = null;
   private model: BaseChatModel;
+  private consoleMonitor: ConsoleMonitor | null = null;
+  private networkMonitor: NetworkMonitor | null = null;
   private state: AgentState = {
     visitedUrls: new Set(),
     findings: [],
@@ -39,6 +44,11 @@ export class ExploratoryAgent {
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
     this.page = await this.browser.newPage();
+
+    // Initialize monitors
+    this.consoleMonitor = new ConsoleMonitor(this.page);
+    this.networkMonitor = new NetworkMonitor(this.page);
+    logger.log("Console and Network monitors initialized");
 
     // Pre-execution Crawl (using Playwright)
     logger.log("Starting Pre-execution Crawl...");
@@ -177,12 +187,28 @@ Target: "${this.config.baseUrl}" - the target web application to explore.
 GOALS:
 1. **Explore**: Visit all pages.
 2. **Interact**: Click buttons, fill forms, try to buy products, try to login.
-3. **Detect**: Find broken images, errors, and UX issues.
+3. **Detect**: Find broken images, errors, validation issues, and UX problems.
+
+WHAT BUGS TO LOOK FOR:
+- **Broken Functionality**: Buttons that don't work, forms that fail, broken checkout flows
+- **Validation Errors**: Missing validation, accepting invalid inputs, poor error messages  
+- **Visual Issues**: Broken images, misaligned elements, missing content
+- **Error Messages**: Visible error alerts, failed operations, unclear feedback
+- **UX Issues**: Confusing flows, missing feedback, unclear labels
+- **Edge Cases**: Empty cart checkout, invalid login attempts, boundary values
+
+WHEN TO USE record_finding:
+- After clicking a button and nothing happens (functional_bug)
+- When you see error messages or alerts on the page (validation_error)
+- When a form accepts invalid data without validation (functional_bug)
+- When you observe confusing or broken user experience (ux_issue)
+- After any interaction that produces unexpected results
 
 STRATEGY:
 - **Prioritize the Queue**: If you have finished testing a page (or are stuck), pick the next URL from the 'To-Do Queue' and 'navigate'.
 - **Avoid Loops**: DO NOT pass through the same pages (like Login/Auth) repeatedly. If a link is marked [VISITED], ignore it unless you have a specific reason to re-test.
 - **Form Hypotheses**: "If I click this without filling the form, do I get an error?", "Can I checkout with an empty cart?"
+- **Test Edge Cases**: Try invalid inputs, empty forms, boundary conditions
 
 Current State:
 - URL: ${url}
@@ -200,7 +226,9 @@ Tools Available:
 - fill_form(selector, value): Type text into an input field or textarea.
 - add_to_queue(urls): Add discoverable URLs to your plan.
 - find_broken_images(): Scan current page for broken images.
-- record_finding(type, description, severity): Record a manual bug finding (e.g. "Checkout error").
+- record_finding(type, description, severity): Record a manual bug finding.
+  * type: "functional_bug" | "validation_error" | "ux_issue" | "bug" | "other"
+  * severity: "low" | "medium" | "high" | "critical"
 - finish(): Stop exploration (only when Queue is empty OR you are stuck).
 
 INSTRUCTIONS:
@@ -209,6 +237,7 @@ INSTRUCTIONS:
   **IMPORTANT**: The response must be valid JSON. Escape newlines.
 - **critical**: If you see a Login form, TRY to login with both valid and invalid credentials to see what happens.
 - **critical**: Try to add items to cart and proceed to checkout.
+- **critical**: After EVERY interaction (click, fill_form), observe the result and use record_finding if something seems broken.
 - **critical**: If 'To-Do Queue' has items, DO NOT click random links that lead to [VISITED] pages. Use 'navigate' to pick a fresh page.
 `;
 
@@ -453,6 +482,88 @@ What is your next move? Response MUST be a raw JSON object.
     } catch (error: any) {
       logger.error(`Action execution failed: ${error}`);
       return `Action failed: ${error.message}`;
+    } finally {
+      // Automatic bug scanning after certain actions
+      if (
+        action === "navigate" ||
+        action === "click" ||
+        action === "fill_form"
+      ) {
+        await this.performAutomaticBugScanning();
+      }
+    }
+  }
+
+  /**
+   * Automatically scan for common bugs after interactions
+   */
+  private async performAutomaticBugScanning() {
+    if (!this.page) return;
+
+    try {
+      // Small delay to let the page settle
+      await this.page.waitForTimeout(500);
+
+      // 1. Check for console errors
+      if (this.consoleMonitor) {
+        const consoleErrors = this.consoleMonitor.getErrors();
+        for (const error of consoleErrors) {
+          this.recordUniqueFinding({
+            type: "console_error",
+            description: `Console ${error.type}: ${error.message}`,
+            url: error.url,
+            severity: error.type === "error" ? "medium" : "low",
+            metadata: {
+              timestamp: error.timestamp,
+              stackTrace: error.stackTrace,
+            },
+          });
+        }
+      }
+
+      // 2. Check for network errors
+      if (this.networkMonitor) {
+        const networkErrors = this.networkMonitor.getErrors();
+        for (const error of networkErrors) {
+          const severity =
+            error.status >= 500
+              ? "high"
+              : error.status >= 400
+              ? "medium"
+              : "low";
+          this.recordUniqueFinding({
+            type: "network_error",
+            description: `Network error: ${error.status} ${error.method} ${error.url}`,
+            url: error.pageUrl,
+            severity,
+            metadata: {
+              requestUrl: error.url,
+              method: error.method,
+              status: error.status,
+              statusText: error.statusText,
+              responseBody: error.responseBody,
+            },
+          });
+        }
+      }
+
+      // 3. Check for validation errors
+      const validationErrors = await findValidationErrors(this.page);
+      for (const error of validationErrors) {
+        this.recordUniqueFinding({
+          type: "validation_error",
+          description: `Validation error: ${error.message}`,
+          url: this.page.url(),
+          selector: error.selector,
+          severity: "low",
+          metadata: {
+            location: error.location,
+          },
+        });
+      }
+    } catch (error) {
+      logger.warn(`Automatic bug scanning failed: ${error}`);
+      // Don't throw - scanning is best-effort
     }
   }
 
