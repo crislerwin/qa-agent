@@ -4,7 +4,15 @@ A fully autonomous AI agent designed to explore web applications, discover bugs,
 
 ## 🚀 Overview
 
-This agent autonomously navigates a target web application (specifically [Practice Software Testing](https://with-bugs.practicesoftwaretesting.com)), interacts with elements, detects broken images, and identifies potential bugs or UX issues. It uses an LLM to make intelligent decisions about where to go and what to test next based on the current page state.
+This agent autonomously navigates a target web application (specifically [Practice Software Testing](https://with-bugs.practicesoftwaretesting.com)), interacts with elements, and identifies bugs through multiple detection mechanisms:
+
+- **Broken Images**: Detects 404s, missing src attributes, and zero-dimension images
+- **Console Errors**: Monitors browser console for JavaScript errors and warnings
+- **Network Failures**: Tracks failed HTTP requests (4xx, 5xx errors)
+- **Validation Errors**: Finds visible error messages and form validation issues
+- **Functional Bugs**: LLM-driven detection of broken functionality and UX issues
+
+The agent uses an LLM to make intelligent decisions about where to go and what to test next based on the current page state.
 
 ## 🛠️ Stack
 
@@ -51,11 +59,14 @@ graph TD
 
 ### Components
 
-1.  **Core Agent (`src/agents/exploratory.ts`)**: Manages the browser instance, state (visited URLs, findings), and the main exploration loop.
+1.  **Core Agent (`src/agents/exploratory.ts`)**: Manages the browser instance, state (visited URLs, findings), and the main exploration loop. Includes automatic bug scanning after each interaction.
 2.  **CLI (`src/index.ts`)**: Provides the user interface, prompting for the target URL and displaying status.
-3.  **Tools (`src/tools/`)**:
-    - `navigate`: Standard browser interactions.
-    - `find_broken_images`: Custom tool to scan for 404s and invalid images.
+3.  **Detection Tools (`src/tools/`)**:
+    - `broken-images.ts`: Scans for 404s, missing src, and zero-dimension images
+    - `console-errors.ts`: Monitors browser console errors and warnings
+    - `network-errors.ts`: Tracks failed HTTP requests (4xx, 5xx)
+    - `validation-errors.ts`: Detects visible error messages and form validation issues
+    - `crawler.ts`: Pre-execution site crawler for URL discovery
 
 ### Project Structure (2026 Agent Architecture)
 
@@ -75,6 +86,8 @@ src/
 - **Pre-Execution Crawler**: Instead of starting blind, the agent uses a lightweight spider to pre-populate its queue with all discoverable links (handling SPA routes), ensuring broad coverage before visual inspection begins.
 - **Simplified DOM Snapshot**: Instead of feeding the raw HTML to the LLM (which consumes too many tokens and confuses the model), we process the DOM into a simplified JSON structure of interactive elements. This strikes a balance between providing enough context and maintaining performance/cost efficiency.
 - **Human-in-the-Loop & Autonomous Modes**: Added a CLI step to allow the user to guide the agent or stop exploration manually, while also offering a fully autonomous mode for unattended execution.
+- **Automatic Bug Scanning**: After each interaction (navigate, click, fill_form), the agent automatically scans for console errors, network failures, and validation errors without requiring explicit LLM calls. This ensures comprehensive bug detection even if the LLM doesn't explicitly invoke detection tools.
+- **Multi-Layered Detection**: Combines automated technical detection (console/network errors) with LLM-driven functional testing (broken flows, UX issues) for comprehensive coverage.
 
 ## 📦 Setup Instructions
 

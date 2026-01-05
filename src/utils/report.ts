@@ -30,12 +30,17 @@ Pages Explored: ${visitedUrls?.length || 0}
     content += "No findings recorded.\n";
   } else {
     findings.forEach((finding, index) => {
-      content += `### ${index + 1}. [${finding.type.toUpperCase()}]
+      content += `### ${
+        index + 1
+      }. [${finding.type.toUpperCase()}] [${finding.severity.toUpperCase()}]
 **URL**: ${finding.url}
 **Description**: ${finding.description}
 `;
       if (finding.selector) {
         content += `**Selector**: \`${finding.selector}\`\n`;
+      }
+      if (finding.screenshot) {
+        content += `**Screenshot**:\n![](${finding.screenshot})\n`;
       }
       content += `\n---\n`;
     });

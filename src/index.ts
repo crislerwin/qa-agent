@@ -50,13 +50,39 @@ async function main() {
 
   const agent = new ExploratoryAgent(config);
 
+  // Helper function to generate and display report
+  const generateAndDisplayReport = async () => {
+    try {
+      s.start("Generating Report...");
+      const reportPath = await generateReport(
+        agent.getFindings(),
+        agent.getVisitedUrls()
+      );
+      s.stop("Report Generated");
+
+      clack.log.success(`Report saved to: ${reportPath}`);
+
+      // Feature: See Report in Terminal
+      try {
+        const reportContent = await Bun.file(reportPath).text();
+        console.log("\n"); // Spacing
+        clack.note(reportContent, "Report Preview");
+      } catch (error) {
+        clack.log.error("Could not read report file for preview.");
+      }
+    } catch (error) {
+      logger.error("Failed to generate report:", error);
+      clack.log.error("Failed to generate report");
+    }
+  };
+
   try {
     s.start("Starting Agent & Browser...");
     await agent.start();
     s.stop("Agent Started");
 
-    let running = true;
     let nextGuidance: string | undefined = undefined;
+    let running = true; // Keep running flag for normal loop termination
 
     while (running) {
       // 1. Run Step
@@ -123,9 +149,11 @@ ${wrapText(result.action, 80)}`,
       }
 
       if (isAutonomous) {
-        // In autonomous mode, we automatically continue.
-        // We might want a small delay so the user can see what's happening or Ctrl+C if needed.
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        // In autonomous mode, check if we should still be running
+        if (!running) break;
+
+        // Small delay to make output readable and allow I/O events (like keypress) to process
+        await new Promise((resolve) => setTimeout(resolve, 1000));
         continue;
       }
 
@@ -165,28 +193,20 @@ ${wrapText(result.action, 80)}`,
       }
     }
 
-    // Generate Report
-    s.start("Generating Report...");
-    const reportPath = await generateReport(
-      agent.getFindings(),
-      agent.getVisitedUrls()
-    );
-    s.stop("Report Generated");
-
-    clack.log.success(`Report saved to: ${reportPath}`);
-
-    // Feature: See Report in Terminal
-    try {
-      const reportContent = await Bun.file(reportPath).text();
-      console.log("\n"); // Spacing
-      clack.note(reportContent, "Report Preview");
-    } catch (error) {
-      clack.log.error("Could not read report file for preview.");
+    // Generate Report (normal flow)
+    await generateAndDisplayReport();
+  } catch (error: any) {
+    // Check if this is a user cancellation
+    if (error?.name === "AbortError" || error?.message?.includes("cancel")) {
+      console.log("\n\n⚠️  User cancelled. Saving report...\n");
+    } else {
+      s.stop("Agent Failed");
+      logger.error("Agent failed:", error);
+      clack.log.error(`Critical Error: ${error}`);
     }
-  } catch (error) {
-    s.stop("Agent Failed");
-    logger.error("Agent failed:", error);
-    clack.log.error(`Critical Error: ${error}`);
+
+    // ALWAYS try to generate report even on error or cancellation
+    await generateAndDisplayReport();
   } finally {
     await agent.stop();
     clack.outro("Goodbye! 👋");
