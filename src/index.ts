@@ -76,56 +76,13 @@ async function main() {
     }
   };
 
-  // Graceful shutdown handler
-  let isShuttingDown = false;
-  const gracefulShutdown = async (signal: string) => {
-    if (isShuttingDown) return;
-    isShuttingDown = true;
-
-    // Force stop any pending operations
-    console.log(`\n\n⚠️  Received ${signal}. Shutting down gracefully...`);
-    console.log("📊 Saving findings to report...\n");
-
-    try {
-      // Generate report with current findings
-      await generateAndDisplayReport();
-    } catch (error) {
-      console.error("Error generating report:", error);
-    }
-
-    // Stop agent
-    try {
-      await agent.stop();
-    } catch (error) {
-      // Ignore errors during shutdown
-    }
-
-    clack.outro("✅ Agent stopped. Report saved. 👋");
-    process.exit(0);
-  };
-
-  // Register signal handlers - MUST be before try block
-  process.on("SIGINT", () => {
-    gracefulShutdown("SIGINT (Ctrl+C)").catch(console.error);
-  });
-
-  process.on("SIGTERM", () => {
-    gracefulShutdown("SIGTERM").catch(console.error);
-  });
-
-  // Also handle uncaught exceptions to save report
-  process.on("uncaughtException", async (error) => {
-    console.error("\n\n❌ Uncaught exception:", error);
-    await gracefulShutdown("Uncaught Exception").catch(console.error);
-  });
-
   try {
     s.start("Starting Agent & Browser...");
     await agent.start();
     s.stop("Agent Started");
 
-    let running = true;
     let nextGuidance: string | undefined = undefined;
+    let running = true; // Keep running flag for normal loop termination
 
     while (running) {
       // 1. Run Step
@@ -192,8 +149,10 @@ ${wrapText(result.action, 80)}`,
       }
 
       if (isAutonomous) {
-        // In autonomous mode, we automatically continue.
-        // Small delay to make output readable
+        // In autonomous mode, check if we should still be running
+        if (!running) break;
+
+        // Small delay to make output readable and allow I/O events (like keypress) to process
         await new Promise((resolve) => setTimeout(resolve, 1000));
         continue;
       }
@@ -236,12 +195,17 @@ ${wrapText(result.action, 80)}`,
 
     // Generate Report (normal flow)
     await generateAndDisplayReport();
-  } catch (error) {
-    s.stop("Agent Failed");
-    logger.error("Agent failed:", error);
-    clack.log.error(`Critical Error: ${error}`);
+  } catch (error: any) {
+    // Check if this is a user cancellation
+    if (error?.name === "AbortError" || error?.message?.includes("cancel")) {
+      console.log("\n\n⚠️  User cancelled. Saving report...\n");
+    } else {
+      s.stop("Agent Failed");
+      logger.error("Agent failed:", error);
+      clack.log.error(`Critical Error: ${error}`);
+    }
 
-    // Try to generate report even on error
+    // ALWAYS try to generate report even on error or cancellation
     await generateAndDisplayReport();
   } finally {
     await agent.stop();

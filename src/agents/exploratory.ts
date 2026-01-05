@@ -3,10 +3,7 @@ import { type BaseChatModel } from "@langchain/core/language_models/chat_models"
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { getDefaultModel } from "../services/llm.ts";
 import { createLogger } from "../utils/logger.ts";
-import {
-  findBrokenImages,
-  type BrokenImageFinding,
-} from "../tools/broken-images.ts";
+import { findBrokenImages } from "../tools/broken-images.ts";
 import { crawlSite } from "../tools/crawler.ts";
 import { ConsoleMonitor } from "../tools/console-errors.ts";
 import { NetworkMonitor } from "../tools/network-errors.ts";
