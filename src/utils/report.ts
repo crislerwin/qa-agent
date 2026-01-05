@@ -3,10 +3,13 @@ import { promises as fs } from "fs";
 
 export async function generateReport(
   findings: AgentFinding[],
-  visitedUrls?: string[]
+  visitedUrls?: string[],
+  sessionId?: string
 ): Promise<string> {
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const filename = `report-${timestamp}.md`;
+  const filename = sessionId
+    ? `report-${sessionId}.md`
+    : `report-${timestamp}.md`;
   const path = `reports/${filename}`;
   let content = `# Exploratory Testing Report
 Date: ${new Date().toLocaleString()}

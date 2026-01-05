@@ -31,4 +31,5 @@ export interface AgentConfig {
   baseUrl: string;
   maxSteps?: number;
   model?: BaseChatModel;
+  sessionId?: string;
 }
