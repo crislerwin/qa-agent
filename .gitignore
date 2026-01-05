@@ -6,9 +6,6 @@ out
 dist
 *.tgz
 
-# reports
-reports
-
 # code coverage
 coverage
 *.lcov
