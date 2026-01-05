@@ -229,7 +229,10 @@ Tools Available:
 - record_finding(type, description, severity): Record a manual bug finding.
   * type: "functional_bug" | "validation_error" | "ux_issue" | "bug" | "other"
   * severity: "low" | "medium" | "high" | "critical"
-- finish(): Stop exploration (only when Queue is empty OR you are stuck).
+- finish(): Stop exploration. Call this when:
+  * The To-Do Queue is EMPTY (0 items), OR
+  * You are stuck in a loop on the same page, OR
+  * You have thoroughly tested all major flows
 
 INSTRUCTIONS:
 - Return a JSON object with "action", "params", and "reason".
@@ -247,6 +250,11 @@ INSTRUCTIONS:
     ).length;
     if (recentStepsOnSameUrl > 2) {
       systemPrompt += `\n\n### WARNING: LOOP DETECTED ###\nYou have been on this URL for ${recentStepsOnSameUrl} steps. You MUST either:\n1. Navigate to a different page from the queue.\n2. Call 'finish()' if you are done.\nDO NOT keep performing the same actions on this page.`;
+    }
+
+    // Empty Queue Detection
+    if (this.state.todoQueue.length === 0) {
+      systemPrompt += `\n\n### CRITICAL: QUEUE IS EMPTY ###\nThe To-Do Queue is EMPTY (0 items). You have explored all discoverable pages.\nYou MUST call 'finish()' on your next action unless you have a very specific reason to continue testing the current page.\nIf you have already tested the current page thoroughly, call 'finish()' NOW.`;
     }
 
     if (guidance) {

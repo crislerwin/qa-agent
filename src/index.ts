@@ -50,6 +50,75 @@ async function main() {
 
   const agent = new ExploratoryAgent(config);
 
+  // Helper function to generate and display report
+  const generateAndDisplayReport = async () => {
+    try {
+      s.start("Generating Report...");
+      const reportPath = await generateReport(
+        agent.getFindings(),
+        agent.getVisitedUrls()
+      );
+      s.stop("Report Generated");
+
+      clack.log.success(`Report saved to: ${reportPath}`);
+
+      // Feature: See Report in Terminal
+      try {
+        const reportContent = await Bun.file(reportPath).text();
+        console.log("\n"); // Spacing
+        clack.note(reportContent, "Report Preview");
+      } catch (error) {
+        clack.log.error("Could not read report file for preview.");
+      }
+    } catch (error) {
+      logger.error("Failed to generate report:", error);
+      clack.log.error("Failed to generate report");
+    }
+  };
+
+  // Graceful shutdown handler
+  let isShuttingDown = false;
+  const gracefulShutdown = async (signal: string) => {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+
+    // Force stop any pending operations
+    console.log(`\n\n⚠️  Received ${signal}. Shutting down gracefully...`);
+    console.log("📊 Saving findings to report...\n");
+
+    try {
+      // Generate report with current findings
+      await generateAndDisplayReport();
+    } catch (error) {
+      console.error("Error generating report:", error);
+    }
+
+    // Stop agent
+    try {
+      await agent.stop();
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
+
+    clack.outro("✅ Agent stopped. Report saved. 👋");
+    process.exit(0);
+  };
+
+  // Register signal handlers - MUST be before try block
+  process.on("SIGINT", () => {
+    gracefulShutdown("SIGINT (Ctrl+C)").catch(console.error);
+  });
+
+  process.on("SIGTERM", () => {
+    gracefulShutdown("SIGTERM").catch(console.error);
+  });
+
+  // Also handle uncaught exceptions to save report
+  process.on("uncaughtException", async (error) => {
+    console.error("\n\n❌ Uncaught exception:", error);
+    await gracefulShutdown("Uncaught Exception").catch(console.error);
+  });
+
   try {
     s.start("Starting Agent & Browser...");
     await agent.start();
@@ -124,8 +193,8 @@ ${wrapText(result.action, 80)}`,
 
       if (isAutonomous) {
         // In autonomous mode, we automatically continue.
-        // We might want a small delay so the user can see what's happening or Ctrl+C if needed.
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        // Small delay to make output readable
+        await new Promise((resolve) => setTimeout(resolve, 1000));
         continue;
       }
 
@@ -165,28 +234,15 @@ ${wrapText(result.action, 80)}`,
       }
     }
 
-    // Generate Report
-    s.start("Generating Report...");
-    const reportPath = await generateReport(
-      agent.getFindings(),
-      agent.getVisitedUrls()
-    );
-    s.stop("Report Generated");
-
-    clack.log.success(`Report saved to: ${reportPath}`);
-
-    // Feature: See Report in Terminal
-    try {
-      const reportContent = await Bun.file(reportPath).text();
-      console.log("\n"); // Spacing
-      clack.note(reportContent, "Report Preview");
-    } catch (error) {
-      clack.log.error("Could not read report file for preview.");
-    }
+    // Generate Report (normal flow)
+    await generateAndDisplayReport();
   } catch (error) {
     s.stop("Agent Failed");
     logger.error("Agent failed:", error);
     clack.log.error(`Critical Error: ${error}`);
+
+    // Try to generate report even on error
+    await generateAndDisplayReport();
   } finally {
     await agent.stop();
     clack.outro("Goodbye! 👋");
