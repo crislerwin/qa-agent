@@ -1,10 +1,12 @@
 import { type BaseChatModel } from "@langchain/core/language_models/chat_models";
 
 export interface AgentFinding {
-  type: "broken_image" | "other";
+  type: "broken_image" | "bug" | "other";
   description: string;
   url: string;
   selector?: string; // unique element identifier (e.g. css selector)
+  severity: "low" | "medium" | "high" | "critical";
+  screenshot?: string; // path to screenshot
 }
 
 export interface AgentState {
