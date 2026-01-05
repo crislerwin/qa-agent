@@ -16,6 +16,8 @@ export interface AgentFinding {
   severity: "low" | "medium" | "high" | "critical";
   screenshot?: string; // path to screenshot
   metadata?: Record<string, any>; // Additional context (status codes, error messages, etc.)
+  occurrences?: string[]; // List of other URLs where this finding was seen
+  count?: number; // Total number of times seen
 }
 
 export interface AgentState {
@@ -31,4 +33,5 @@ export interface AgentConfig {
   baseUrl: string;
   maxSteps?: number;
   model?: BaseChatModel;
+  sessionId?: string;
 }

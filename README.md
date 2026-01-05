@@ -19,21 +19,27 @@ The agent uses an LLM to make intelligent decisions about where to go and what t
 - **Language:** TypeScript
 - **Browser Automation:** Playwright
 - **LLM Orchestration:** LangChain
+- **Persistence:** SQLite (via `bun:sqlite`)
 - **CLI/UX:** @clack/prompts (Enhanced with "Agent Progress" Dashboard & Verbose Mode)
 - **Runtime:** Bun
 
 ## 🏗️ Architecture
 
-The agent follows a cyclical **Observe-Think-Act** architecture:
+The agent follows a cyclical **Observe-Think-Act** architecture with state persistence:
 
 ![LLM Architecture](assets/llm-arch.png)
 
 ```mermaid
 graph TD
     Start([Start]) --> Init[Initialize Browser & Agent]
-    Init --> Crawl[Pre-Execution Crawl using Playwright]
+    Init --> CheckSession{Resume Session?}
+    CheckSession -- Yes --> LoadState[Load State from SQLite]
+    CheckSession -- No --> Crawl[Pre-Execution Crawl]
+
+    LoadState --> Nav[Navigate to Last/Base URL]
     Crawl --> Populate[Populate To-Do Queue]
-    Populate --> Nav[Navigate to Base URL]
+    Populate --> Nav
+
     Nav --> Loop{Exploration Loop}
 
     Loop --> Observe[1. Observe]
@@ -45,13 +51,19 @@ graph TD
     Plan --> Act[3. Act]
     Act --> Execute["Execute Action (Click, Type, Scan, etc.)"]
 
-    Execute --> Check[Check Completion]
+    Execute --> Persist[Save State to SQLite]
+    Persist --> Check[Check Completion]
+
     Check -- Continue --> Loop
     Check -- Finish --> Report[Generate Final Report]
 
     subgraph Tools
-    FindBroken[find_broken_images]
     Navigate
+    Click
+    FillForm[fill_form]
+    AddToQueue[add_to_queue]
+    FindBroken[find_broken_images]
+    RecordFinding[record_finding]
     end
 
     Execute -.-> Tools
@@ -59,9 +71,10 @@ graph TD
 
 ### Components
 
-1.  **Core Agent (`src/agents/exploratory.ts`)**: Manages the browser instance, state (visited URLs, findings), and the main exploration loop. Includes automatic bug scanning after each interaction.
-2.  **CLI (`src/index.ts`)**: Provides the user interface, prompting for the target URL and displaying status.
-3.  **Detection Tools (`src/tools/`)**:
+1.  **Core Agent (`src/agents/exploratory.ts`)**: Manages the browser instance, state (visited URLs, findings), and the main exploration loop.
+2.  **Persistence Layer (`src/repositories/session.repository.ts`)**: Handles saving and loading agent state using SQLite.
+3.  **CLI (`src/index.ts`)**: Provides the user interface, session management, and status display.
+4.  **Detection Tools (`src/tools/`)**:
     - `broken-images.ts`: Scans for 404s, missing src, and zero-dimension images
     - `console-errors.ts`: Monitors browser console errors and warnings
     - `network-errors.ts`: Tracks failed HTTP requests (4xx, 5xx)
@@ -73,6 +86,7 @@ graph TD
 ```
 src/
 ├── agents/             # Logic for specialized agent types (ExploratoryAgent)
+├── repositories/       # Data persistence layer (SessionRepository)
 ├── tools/              # Reusable functions (Action Layer)
 ├── services/           # External API wrappers (LLM layer)
 ├── types/              # Global TypeScript interfaces
@@ -82,12 +96,13 @@ src/
 
 ## ⚙️ Design Decisions & Trade-offs
 
-- **Playwright**: Chosen for its reliability and robust handling of modern web apps (waiting for elements, network interception) compared to Puppeteer or Selenium.
-- **Pre-Execution Crawler**: Instead of starting blind, the agent uses a lightweight spider to pre-populate its queue with all discoverable links (handling SPA routes), ensuring broad coverage before visual inspection begins.
-- **Simplified DOM Snapshot**: Instead of feeding the raw HTML to the LLM (which consumes too many tokens and confuses the model), we process the DOM into a simplified JSON structure of interactive elements. This strikes a balance between providing enough context and maintaining performance/cost efficiency.
-- **Human-in-the-Loop & Autonomous Modes**: Added a CLI step to allow the user to guide the agent or stop exploration manually, while also offering a fully autonomous mode for unattended execution.
-- **Automatic Bug Scanning**: After each interaction (navigate, click, fill_form), the agent automatically scans for console errors, network failures, and validation errors without requiring explicit LLM calls. This ensures comprehensive bug detection even if the LLM doesn't explicitly invoke detection tools.
-- **Multi-Layered Detection**: Combines automated technical detection (console/network errors) with LLM-driven functional testing (broken flows, UX issues) for comprehensive coverage.
+- **Playwright**: Chosen for its reliability and robust handling of modern web apps.
+- **SQLite Persistence**: Used `bun:sqlite` for a lightweight, zero-dependency persistence layer, allowing the agent to be stopped and resumed without losing progress (visited pages, findings queue).
+- **Pre-Execution Crawler**: Uses a lightweight spider to pre-populate the queue, ensuring broad coverage.
+- **Simplified DOM Snapshot**: Processes DOM into a lightweight JSON structure to optimize token usage.
+- **Human-in-the-Loop & Autonomous Modes**: Offers both interactive and fully autonomous execution modes.
+- **Automatic Bug Scanning**: Automatically scans for technical errors after every interaction.
+- **Deduplication**: Logic to aggregate identical findings across multiple pages to reduce report noise.
 
 ## 📦 Setup Instructions
 
@@ -111,16 +126,17 @@ src/
     cp .env.example .env
     ```
 
-    Edit `.env` and add your API key for **Google Gemini** or **OpenRouter**:
+    Edit `.env` to configure your LLM provider. The agent supports **Gemini** (prioritized) and any **OpenAI-Compatible** provider (OpenAI, OpenRouter, Local, etc.).
 
     ```env
-    # Example for Google Gemini
-    GOOGLE_AI_STUDIO_API_KEY=your_api_key_here
+    # Option 1: Google Gemini (Recommended)
+    GOOGLE_AI_STUDIO_API_KEY=your_gemini_key_here
     GEMINI_MODEL=gemini-2.0-flash-exp
 
-    # OR for OpenRouter
-    OPEN_ROUTER_API_KEY=your_key_here
-    OPEN_ROUTER_MODEL=anthropic/claude-3.5-sonnet
+    # Option 2: Generic OpenAI Compatible (OpenAI, OpenRouter, etc.)
+    OPEN_AI_API_KEY=your_api_key
+    OPEN_AI_API_URL=https://api.openai.com/v1 # or https://openrouter.ai/api/v1
+    OPEN_AI_MODEL=gpt-4o # or anthropic/claude-3.5-sonnet
     ```
 
 ## 🏃‍♂️ How to Run
@@ -131,10 +147,13 @@ Start the agent CLI:
 bun run cli
 ```
 
-1.  Enter the target URL when prompted (defaults to the challenge site).
-2.  Watch the agent explore!
-3.  Provide guidance if needed, or let it run.
-4.  When finished (or stopped), the agent generates a Markdown report in `reports/`.
+1.  **Enter Target URL**: (Defaults to challenge site).
+2.  **Select Mode**: Autonomous or Human-in-the-Loop.
+3.  **Session Management**:
+    - **Start New Session**: Begins a fresh exploration.
+    - **Resume Session**: Pick from a list of recent sessions to continue where you left off.
+4.  **Watch it explore!**
+5.  **Report**: generated in `reports/report-<session-id>.md`. Resuming a session updates the existing report.
 
 ## 🤖 AI Usage Documentation
 

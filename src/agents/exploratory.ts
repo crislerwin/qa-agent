@@ -9,6 +9,7 @@ import { ConsoleMonitor } from "../tools/console-errors.ts";
 import { NetworkMonitor } from "../tools/network-errors.ts";
 import { findValidationErrors } from "../tools/validation-errors.ts";
 import type { AgentConfig, AgentFinding, AgentState } from "../types/index.ts";
+import { SessionRepository } from "../repositories/session.repository.ts";
 
 const logger = createLogger("agent:exploratory");
 
@@ -18,6 +19,7 @@ export class ExploratoryAgent {
   private model: BaseChatModel;
   private consoleMonitor: ConsoleMonitor | null = null;
   private networkMonitor: NetworkMonitor | null = null;
+  private sessionRepo: SessionRepository;
   private state: AgentState = {
     visitedUrls: new Set(),
     findings: [],
@@ -31,10 +33,26 @@ export class ExploratoryAgent {
   constructor(config: AgentConfig) {
     this.config = config;
     this.model = config.model || getDefaultModel();
+    this.sessionRepo = new SessionRepository();
   }
 
   async start() {
     logger.log("Starting Exploratory Agent...");
+
+    // Check for existing session
+    if (this.config.sessionId) {
+      const loadedState = this.sessionRepo.loadState(this.config.sessionId);
+      if (loadedState) {
+        this.state = loadedState;
+        logger.info(
+          `Resumed session ${this.config.sessionId}. Step: ${this.state.steps}`
+        );
+      } else {
+        logger.info(
+          `No existing state found for session ${this.config.sessionId}. Starting fresh.`
+        );
+      }
+    }
 
     this.browser = await chromium.launch({
       headless: true, // Configurable later
@@ -47,17 +65,28 @@ export class ExploratoryAgent {
     this.networkMonitor = new NetworkMonitor(this.page);
     logger.log("Console and Network monitors initialized");
 
-    // Pre-execution Crawl (using Playwright)
-    logger.log("Starting Pre-execution Crawl...");
-    const discoveredUrls = await crawlSite(this.page, this.config.baseUrl);
-    this.state.todoQueue = [...discoveredUrls];
-    logger.log(
-      `Queue initialized with ${discoveredUrls.length} pages from crawl.`
-    );
+    if (this.state.steps === 0) {
+      // Pre-execution Crawl (using Playwright)
+      logger.log("Starting Pre-execution Crawl...");
+      const discoveredUrls = await crawlSite(this.page, this.config.baseUrl);
+      this.state.todoQueue = [...discoveredUrls];
+      logger.log(
+        `Queue initialized with ${discoveredUrls.length} pages from crawl.`
+      );
 
-    // Initial navigation back to base
-    await this.page.goto(this.config.baseUrl);
-    logger.log(`Navigated to ${this.config.baseUrl}`);
+      // Initial navigation back to base
+      await this.page.goto(this.config.baseUrl);
+      logger.log(`Navigated to ${this.config.baseUrl}`);
+    } else {
+      // Resolving last position or navigating to base if unsure
+      const lastUrl = this.state.history[this.state.history.length - 1]?.url;
+      if (lastUrl) {
+        await this.page.goto(lastUrl);
+        logger.log(`Resumed navigation at ${lastUrl}`);
+      } else {
+        await this.page.goto(this.config.baseUrl);
+      }
+    }
   }
 
   async stop() {
@@ -354,6 +383,11 @@ What is your next move? Response MUST be a raw JSON object.
       findingsCount: this.state.findings.length,
     };
 
+    // Save state if session ID is present
+    if (this.config.sessionId) {
+      this.sessionRepo.saveState(this.config.sessionId, this.state);
+    }
+
     return {
       action: parsed.action,
       reason: parsed.reason,
@@ -588,23 +622,43 @@ What is your next move? Response MUST be a raw JSON object.
 
   private recordUniqueFinding(finding: AgentFinding) {
     // Advanced Deduplication:
-    let exists = false;
+    let existingFinding: AgentFinding | undefined;
 
-    if (finding.type === "broken_image" && finding.selector) {
-      exists = this.state.findings.some(
-        (f) =>
-          f.type === "broken_image" &&
-          f.selector === finding.selector &&
-          f.description === finding.description
+    // Strict matching criteria
+    // Same type, same description
+    // If selector exists, it must match
+    existingFinding = this.state.findings.find(
+      (f) =>
+        f.type === finding.type &&
+        f.description === finding.description &&
+        f.selector === finding.selector
+    );
+
+    if (existingFinding) {
+      // It's a duplicate. Aggregate it.
+      existingFinding.count = (existingFinding.count || 1) + 1;
+
+      if (!existingFinding.occurrences) {
+        existingFinding.occurrences = [];
+      }
+
+      // Add current URL to occurrences if not already there
+      if (
+        !existingFinding.occurrences.includes(finding.url) &&
+        existingFinding.url !== finding.url
+      ) {
+        existingFinding.occurrences.push(finding.url);
+      }
+
+      logger.info(
+        `Aggregated duplicate finding: ${finding.description} (Count: ${existingFinding.count})`
       );
+
+      // Update severity if new instance is more critical? (Optional, skipping for now)
     } else {
-      // Standard description match
-      exists = this.state.findings.some(
-        (f) => f.description === finding.description && f.url === finding.url
-      );
-    }
-
-    if (!exists) {
+      // It's new
+      finding.count = 1;
+      // finding.occurrences is undefined initially
       this.state.findings.push(finding);
       logger.info(`Recorded NEW finding: ${finding.description}`);
     }

@@ -3,10 +3,13 @@ import { promises as fs } from "fs";
 
 export async function generateReport(
   findings: AgentFinding[],
-  visitedUrls?: string[]
+  visitedUrls?: string[],
+  sessionId?: string
 ): Promise<string> {
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const filename = `report-${timestamp}.md`;
+  const filename = sessionId
+    ? `report-${sessionId}.md`
+    : `report-${timestamp}.md`;
   const path = `reports/${filename}`;
   let content = `# Exploratory Testing Report
 Date: ${new Date().toLocaleString()}
@@ -36,6 +39,17 @@ Pages Explored: ${visitedUrls?.length || 0}
 **URL**: ${finding.url}
 **Description**: ${finding.description}
 `;
+      if (finding.occurrences && finding.occurrences.length > 0) {
+        content += `**Additional Occurrences**: ${finding.occurrences.length} other pages\n`;
+        const displayedOccurrences = finding.occurrences.slice(0, 5);
+        displayedOccurrences.forEach((occ) => {
+          content += `- ${occ}\n`;
+        });
+        if (finding.occurrences.length > 5) {
+          content += `- ...and ${finding.occurrences.length - 5} more\n`;
+        }
+      }
+
       if (finding.selector) {
         content += `**Selector**: \`${finding.selector}\`\n`;
       }

@@ -4,6 +4,8 @@ import { createLogger, setVerbose } from "./utils/logger.ts";
 import { generateReport } from "./utils/report.ts";
 import * as clack from "@clack/prompts";
 
+import { SessionRepository } from "./repositories/session.repository.ts";
+
 const logger = createLogger("cli");
 
 async function main() {
@@ -43,9 +45,44 @@ async function main() {
   // Set global log level
   setVerbose(isVerbose as boolean);
 
+  // 0c. Session Management
+  const sessionRepo = new SessionRepository();
+  const existingSessions = sessionRepo.listSessions().slice(0, 5); // Recent 5
+
+  let sessionId: string;
+
+  if (existingSessions.length > 0) {
+    const sessionAction = await clack.select({
+      message: "Session Management",
+      options: [
+        { value: "new", label: "Start New Session" },
+        ...existingSessions.map((id) => ({
+          value: id,
+          label: `Resume: ${id}`,
+        })),
+      ],
+    });
+
+    if (clack.isCancel(sessionAction)) {
+      clack.outro("Operation cancelled.");
+      process.exit(0);
+    }
+
+    if (sessionAction === "new") {
+      sessionId = `session-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+    } else {
+      sessionId = sessionAction as string;
+    }
+  } else {
+    sessionId = `session-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  }
+
+  clack.log.info(`Using Session ID: ${sessionId}`);
+
   const config: AgentConfig = {
     baseUrl: baseUrl as string,
     maxSteps: 10,
+    sessionId: sessionId,
   };
 
   const agent = new ExploratoryAgent(config);
@@ -56,7 +93,8 @@ async function main() {
       s.start("Generating Report...");
       const reportPath = await generateReport(
         agent.getFindings(),
-        agent.getVisitedUrls()
+        agent.getVisitedUrls(),
+        config.sessionId
       );
       s.stop("Report Generated");
 
