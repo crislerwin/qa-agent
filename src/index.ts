@@ -5,7 +5,6 @@ import { generateReport } from "./utils/report.ts";
 import * as clack from "@clack/prompts";
 
 import { SessionRepository } from "./repositories/session.repository.ts";
-import { randomUUID } from "node:crypto";
 
 const logger = createLogger("cli");
 
