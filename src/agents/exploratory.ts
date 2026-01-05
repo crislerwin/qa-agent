@@ -270,12 +270,53 @@ INSTRUCTIONS:
 - **critical**: If 'To-Do Queue' has items, DO NOT click random links that lead to [VISITED] pages. Use 'navigate' to pick a fresh page.
 `;
 
-    // Loop Detection
-    const recentStepsOnSameUrl = historySlice.filter(
-      (h) => h.url === url
-    ).length;
-    if (recentStepsOnSameUrl > 2) {
-      systemPrompt += `\n\n### WARNING: LOOP DETECTED ###\nYou have been on this URL for ${recentStepsOnSameUrl} steps. You MUST either:\n1. Navigate to a different page from the queue.\n2. Call 'finish()' if you are done.\nDO NOT keep performing the same actions on this page.`;
+    // Intelligent Loop Detection
+    // 1. Get all steps performed on the current URL (continuous segment)
+    let stepsOnCurrentUrl = 0;
+    for (let i = this.state.history.length - 1; i >= 0; i--) {
+      const historyStep = this.state.history[i];
+      if (historyStep && historyStep.url === url) {
+        stepsOnCurrentUrl++;
+      } else {
+        break;
+      }
+    }
+
+    // 2. Repetition Detection
+    const last3Steps = this.state.history.slice(-3);
+    const firstOfLast3 = last3Steps[0];
+    const isRepeatingAction =
+      last3Steps.length === 3 &&
+      firstOfLast3 &&
+      last3Steps.every(
+        (s) =>
+          s.action === firstOfLast3.action &&
+          JSON.stringify(s.params) === JSON.stringify(firstOfLast3.params)
+      );
+
+    // 3. Stagnation Detection (staying on page too long without new findings)
+    const recentFindings = this.state.findings.filter(
+      (f) => f.url === url
+    ).length; // Total findings on this page
+    // (This works because finding logic dedupes, so count grows only with distinct findings/types)
+
+    if (isRepeatingAction) {
+      systemPrompt += `\n\n### WARNING: REPETITIVE ACTION DETECTED ###\nYou have performed the EXACT SAME action 3 times in a row. Stop doing this.\n1. Choose a DIFFERENT element to interact with.\n2. Or navigate to a new page.\n3. Or call 'finish()' if stuck.`;
+    } else if (stepsOnCurrentUrl > 10 && recentFindings === 0) {
+      // Only warn if dwell time is high AND no findings encountered (implies unproductive spinning)
+      // Checking 'recentFindings === 0' is a proxy for "is this page useful?".
+      // A better proxy might be "unique interactions".
+      // Let's refine:
+      const uniqueInteractions = new Set(
+        this.state.history
+          .slice(-stepsOnCurrentUrl)
+          .map((s) => s.action + JSON.stringify(s.params))
+      ).size;
+
+      if (uniqueInteractions < stepsOnCurrentUrl * 0.5) {
+        // If < 50% of actions were unique
+        systemPrompt += `\n\n### WARNING: STAGNATION DETECTED ###\nYou have been on this page for ${stepsOnCurrentUrl} steps with repetitive actions.\nYou MUST navigate away or finish unless you find a specific new bug immediately.`;
+      }
     }
 
     // Empty Queue Detection
@@ -373,6 +414,7 @@ What is your next move? Response MUST be a raw JSON object.
       action: parsed.action,
       reason: parsed.reason,
       url: this.page.url(),
+      params: parsed.params,
     });
 
     // Capture stats for UI

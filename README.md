@@ -161,7 +161,7 @@ This project was built with significant AI assistance, leveraging the following 
 
 - **Tools Used**:
 
-  - **Google Gemini 2.0 Flash**: Used as the "brain" for the agent itself.
+  - **claude-haiku-4.5**: Used as the "brain" for the agent itself.
   - **Coding Assistant**: Used for generating boilerplate code, refining TypeScript types, and implementing the `find_broken_images` tool logic.
 
 - **Development Process**:

@@ -24,7 +24,13 @@ export interface AgentState {
   visitedUrls: Set<string>;
   findings: AgentFinding[];
   steps: number;
-  history: { action: string; reason: string; url: string; result?: string }[]; // Short-term memory
+  history: {
+    action: string;
+    reason: string;
+    url: string;
+    result?: string;
+    params?: any;
+  }[]; // Short-term memory
   todoQueue: string[]; // URLs to explore
   scannedUrls: Set<string>; // URLs that have been scanned for broken images
 }
