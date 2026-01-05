@@ -13,40 +13,11 @@ export interface ModelConfig {
   apiKey?: string;
   temperature?: number;
   maxTokens?: number;
-}
-
-/**
- * Create an OpenRouter model instance
- * Supports any model available on OpenRouter
- */
-export function createOpenRouterModel(config: ModelConfig = {}): BaseChatModel {
-  const apiKey = config.apiKey || process.env.OPEN_ROUTER_API_KEY;
-  const modelName =
-    config.modelName ||
-    process.env.OPEN_ROUTER_MODEL ||
-    "x-ai/grok-4.1-fast:free";
-
-  logger.info(`Creating OpenRouter model: ${modelName}`);
-
-  if (!apiKey) {
-    logger.error("OPEN_ROUTER_API_KEY not found in environment or config");
-    throw new Error("OPEN_ROUTER_API_KEY not found in environment or config");
-  }
-
-  return new ChatOpenAI({
-    modelName,
-    apiKey,
-    temperature: config.temperature ?? 0.7,
-    maxTokens: config.maxTokens,
-    configuration: {
-      baseURL: "https://openrouter.ai/api/v1",
-    },
-  });
+  baseUrl?: string;
 }
 
 /**
  * Create a Gemini model instance via AI Studio
- * Supports Gemini models: gemini-1.5-flash, gemini-1.5-pro, etc.
  */
 export function createGeminiModel(config: ModelConfig = {}): BaseChatModel {
   const apiKey = config.apiKey || process.env.GOOGLE_AI_STUDIO_API_KEY;
@@ -54,9 +25,6 @@ export function createGeminiModel(config: ModelConfig = {}): BaseChatModel {
     config.modelName || process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
 
   logger.info(`Creating Gemini model: ${modelName}`);
-  logger.info(
-    `API Key present: ${apiKey ? "Yes (length: " + apiKey.length + ")" : "No"}`
-  );
 
   if (!apiKey) {
     logger.error("GOOGLE_AI_STUDIO_API_KEY not found in environment or config");
@@ -81,57 +49,60 @@ export function createGeminiModel(config: ModelConfig = {}): BaseChatModel {
 }
 
 /**
+ * Create a generic OpenAI-compatible model instance
+ * Can be used with any provider supporting the OpenAI API (e.g. OpenAI, OpenRouter, DeepSeek, etc.)
+ */
+export function createOpenAIModel(config: ModelConfig = {}): BaseChatModel {
+  const apiKey = config.apiKey || process.env.OPEN_AI_API_KEY;
+  const modelName =
+    config.modelName || process.env.OPEN_AI_MODEL || "gpt-3.5-turbo";
+  const baseUrl = config.baseUrl || process.env.OPEN_AI_API_URL;
+
+  logger.info(
+    `Creating OpenAI model: ${modelName} at ${baseUrl || "default openai url"}`
+  );
+
+  if (!apiKey) {
+    logger.warn("OPEN_AI_API_KEY not found. Some providers may require it.");
+  }
+
+  return new ChatOpenAI({
+    modelName,
+    apiKey,
+    temperature: config.temperature ?? 0.7,
+    maxTokens: config.maxTokens,
+    configuration: {
+      baseURL: baseUrl,
+    },
+  });
+}
+
+/**
  * Get default model based on environment variables
- * Defaults to free models when available
  */
 export function getDefaultModel(): BaseChatModel {
   logger.info("Getting default model...");
-  logger.info(`MODEL_PROVIDER: ${process.env.MODEL_PROVIDER || "auto"}`);
-  logger.info(
-    `OPEN_ROUTER_API_KEY present: ${
-      process.env.OPEN_ROUTER_API_KEY ? "Yes" : "No"
-    }`
-  );
-  logger.info(
-    `GOOGLE_AI_STUDIO_API_KEY present: ${
-      process.env.GOOGLE_AI_STUDIO_API_KEY ? "Yes" : "No"
-    }`
-  );
 
-  // Check explicit provider preference first
-  const provider = process.env.MODEL_PROVIDER?.toLowerCase();
-
-  if (provider === "openrouter") {
-    if (!process.env.OPEN_ROUTER_API_KEY) {
-      throw new Error(
-        'MODEL_PROVIDER is set to "openrouter" but OPEN_ROUTER_API_KEY is not configured'
-      );
-    }
-    logger.info("Using OpenRouter model (explicitly set)");
-    return createOpenRouterModel();
-  }
-
-  if (provider === "gemini") {
-    if (!process.env.GOOGLE_AI_STUDIO_API_KEY) {
-      throw new Error(
-        'MODEL_PROVIDER is set to "gemini" but GOOGLE_AI_STUDIO_API_KEY is not configured'
-      );
-    }
-    logger.info("Using Gemini model (explicitly set)");
-    return createGeminiModel();
-  }
-
-  // Auto-detect based on available API keys (fallback behavior)
-  if (process.env.OPEN_ROUTER_API_KEY) {
-    logger.info("Using OpenRouter model (auto-detected)");
-    return createOpenRouterModel();
-  }
+  // 1. Prefer Gemini if explicitly key is present
   if (process.env.GOOGLE_AI_STUDIO_API_KEY) {
-    logger.info("Using Gemini model (auto-detected)");
+    logger.info("Using Gemini model (detected GOOGLE_AI_STUDIO_API_KEY)");
     return createGeminiModel();
   }
+
+  // 2. Fallback to OpenAI Compatible (OpenRouter, OpenAI, Local, etc.)
+  if (process.env.OPEN_AI_API_KEY) {
+    logger.info("Using OpenAI Compatible model (detected OPEN_AI_API_KEY)");
+    return createOpenAIModel();
+  }
+
+  // 3. Last resort - check if just the URL is there (e.g. local llm with no key needed)
+  if (process.env.OPEN_AI_API_URL) {
+    logger.info("Using OpenAI Compatible model (detected OPEN_AI_API_URL)");
+    return createOpenAIModel();
+  }
+
   throw new Error(
-    "No API key found. Set OPEN_ROUTER_API_KEY or GOOGLE_AI_STUDIO_API_KEY in .env"
+    "No valid provider found. Set GOOGLE_AI_STUDIO_API_KEY or OPEN_AI_API_KEY (and optionally OPEN_AI_API_URL) in .env"
   );
 }
 
@@ -139,11 +110,13 @@ export function getDefaultModel(): BaseChatModel {
  * Get the name of the default model configured in environment variables
  */
 export function getDefaultModelName(): string {
-  if (process.env.OPEN_ROUTER_API_KEY) {
-    return process.env.OPEN_ROUTER_MODEL || "x-ai/grok-4.1-fast:free";
-  }
   if (process.env.GOOGLE_AI_STUDIO_API_KEY) {
     return process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
   }
+
+  if (process.env.OPEN_AI_API_KEY || process.env.OPEN_AI_API_URL) {
+    return process.env.OPEN_AI_MODEL || "gpt-3.5-turbo";
+  }
+
   return "unknown";
 }
