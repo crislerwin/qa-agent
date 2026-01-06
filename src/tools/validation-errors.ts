@@ -124,26 +124,35 @@ export async function findValidationErrors(
       }
     }
 
-    // Deduplicate by message and location
-    const unique = errors.filter(
-      (error, index, self) =>
-        index ===
-        self.findIndex(
-          (e) =>
-            e.message === error.message &&
-            Math.abs(e.location.x - error.location.x) < 5 &&
-            Math.abs(e.location.y - error.location.y) < 5
-        )
-    );
+    // Deduplicate by message and location using a Map for O(n) complexity
+    const seen = new Map<string, Array<{ x: number; y: number }>>();
+    const unique = errors.filter((error) => {
+      const key = error.message;
+
+      if (seen.has(key)) {
+        const prevLocations = seen.get(key)!;
+        const isDuplicate = prevLocations.some(
+          (loc) =>
+            Math.abs(error.location.x - loc.x) < 5 &&
+            Math.abs(error.location.y - loc.y) < 5
+        );
+
+        if (isDuplicate) {
+          return false;
+        }
+
+        prevLocations.push(error.location);
+      } else {
+        seen.set(key, [error.location]);
+      }
+
+      return true;
+    });
 
     return unique;
   });
 
-  if (findings.length > 0) {
-    logger.log(`Found ${findings.length} validation errors.`);
-  } else {
-    logger.log("No validation errors found.");
-  }
+  findings.length > 0 ? logger.log(`Found ${findings.length} validation errors.`) : logger.log("No validation errors found.");
 
   return findings;
 }
