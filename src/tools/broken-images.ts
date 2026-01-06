@@ -54,12 +54,6 @@ export async function findBrokenImages(
     const broken: any[] = [];
 
     for (const img of images) {
-      if (!img.complete) {
-        // Optional: You could log a warning here or return a "Loading..." status.
-        // For now, we continue, but be aware these are skipped.
-        continue;
-      }
-
       const rect = img.getBoundingClientRect();
       const currentSrc = img.getAttribute("src") || "";
       const currentSrcset = img.getAttribute("srcset") || "";
