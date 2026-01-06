@@ -26,7 +26,6 @@ export class ExploratoryAgent {
     steps: 0,
     history: [],
     todoQueue: [],
-    scannedUrls: new Set(),
   };
   private config: AgentConfig;
 
@@ -202,7 +201,6 @@ export class ExploratoryAgent {
       )
       .join("\n");
 
-    const isScanned = this.state.scannedUrls.has(url);
 
     let systemPrompt = `
 You are an intelligent QA Testing Agent. Your goal is to explore the web application at ${this.config.baseUrl
@@ -241,7 +239,6 @@ Current State:
 - Title: ${title}
 - Visited URLs count: ${this.state.visitedUrls.size}
 - To-Do Queue: ${JSON.stringify(this.state.todoQueue)}
-- Page Scanned for Images: ${isScanned ? "YES" : "NO"}
 
 Memory (Last 3 Steps):
 ${recentHistory || "None"}
@@ -521,7 +518,7 @@ What is your next move? Response MUST be a raw JSON object.
           return `Filled ${params.selector} with ${params.value}`;
 
         case "find_broken_images":
-          this.state.scannedUrls.add(this.page.url());
+          this.state.visitedUrls.add(this.page.url());
           const findings = await findBrokenImages(this.page);
 
           let brokenImgScreenshot = "";

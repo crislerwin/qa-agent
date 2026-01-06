@@ -2,14 +2,14 @@ import { type BaseChatModel } from "@langchain/core/language_models/chat_models"
 
 export interface AgentFinding {
   type:
-    | "broken_image"
-    | "console_error"
-    | "network_error"
-    | "validation_error"
-    | "functional_bug"
-    | "ux_issue"
-    | "bug"
-    | "other";
+  | "broken_image"
+  | "console_error"
+  | "network_error"
+  | "validation_error"
+  | "functional_bug"
+  | "ux_issue"
+  | "bug"
+  | "other";
   description: string;
   url: string;
   selector?: string; // unique element identifier (e.g. css selector)
@@ -32,7 +32,6 @@ export interface AgentState {
     params?: any;
   }[]; // Short-term memory
   todoQueue: string[]; // URLs to explore
-  scannedUrls: Set<string>; // URLs that have been scanned for broken images
 }
 
 export interface AgentConfig {
