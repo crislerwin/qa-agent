@@ -127,6 +127,7 @@ export class ExploratoryAgent {
     // Simplified DOM for LLM
     // Capture interactive elements (a, button, input, select, textarea) + images
     const visitedList = Array.from(this.state.visitedUrls);
+
     const snapshot = await this.page.evaluate((visitedUrls) => {
       const elements = document.querySelectorAll(
         "a, button, input, select, textarea, img, label"
@@ -142,9 +143,8 @@ export class ExploratoryAgent {
           const tagName = el.tagName.toLowerCase();
 
           if (tagName === "img") {
-            text = `[Image: ${
-              (el as HTMLImageElement).alt || (el as HTMLImageElement).src
-            }]`;
+            text = `[Image: ${(el as HTMLImageElement).alt || (el as HTMLImageElement).src
+              }]`;
           } else if (tagName === "input") {
             const input = el as HTMLInputElement;
             extra = `[Type: ${input.type}, Name: ${input.name}, ID: ${input.id}]`;
@@ -168,12 +168,13 @@ export class ExploratoryAgent {
             if (href) selector = `a[href="${href}"]`;
 
             // Mark visited links using absolute URL (resolves relative paths automatically)
-            if (
+            const normalizedHref = absoluteHref.replace(/\/$/, "");
+            const isVisited =
               visitedUrls.includes(absoluteHref) ||
-              visitedUrls.includes(absoluteHref.replace(/\/$/, ""))
-            ) {
-              extra += " [VISITED]";
-            }
+              visitedUrls.includes(normalizedHref);
+
+            if (isVisited) extra += " [VISITED]";
+
           } else if (el.className) {
             selector = `${tagName}.${el.className.split(" ").join(".")}`;
           } else {
@@ -196,8 +197,7 @@ export class ExploratoryAgent {
     const recentHistory = historySlice
       .map(
         (h, i) =>
-          `Step ${historyStartIndex + i + 1}: ${h.action} (Reason: ${
-            h.reason
+          `Step ${historyStartIndex + i + 1}: ${h.action} (Reason: ${h.reason
           }) -> Result: ${h.result || "N/A"}`
       )
       .join("\n");
@@ -205,9 +205,8 @@ export class ExploratoryAgent {
     const isScanned = this.state.scannedUrls.has(url);
 
     let systemPrompt = `
-You are an intelligent QA Testing Agent. Your goal is to explore the web application at ${
-      this.config.baseUrl
-    } and FIND BUGS.
+You are an intelligent QA Testing Agent. Your goal is to explore the web application at ${this.config.baseUrl
+      } and FIND BUGS.
 Target: "${this.config.baseUrl}" - the target web application to explore.
 
 GOALS:
@@ -232,7 +231,8 @@ WHEN TO USE record_finding:
 
 STRATEGY:
 - **Prioritize the Queue**: If you have finished testing a page (or are stuck), pick the next URL from the 'To-Do Queue' and 'navigate'.
-- **Avoid Loops**: DO NOT pass through the same pages (like Login/Auth) repeatedly. If a link is marked [VISITED], ignore it unless you have a specific reason to re-test.
+- **CRITICAL - Avoid Re-Testing**: Links marked [VISITED] have been removed from the queue because they were already explored. NEVER click these links. NEVER navigate to these pages. This will create an infinite loop.
+- **Avoid Loops**: DO NOT pass through the same pages (like Login/Auth) repeatedly. If it's marked [VISITED], absolutely do not click it.
 - **Form Hypotheses**: "If I click this without filling the form, do I get an error?", "Can I checkout with an empty cart?"
 - **Test Edge Cases**: Try invalid inputs, empty forms, boundary conditions
 
@@ -267,7 +267,7 @@ INSTRUCTIONS:
 - **critical**: If you see a Login form, TRY to login with both valid and invalid credentials to see what happens.
 - **critical**: Try to add items to cart and proceed to checkout.
 - **critical**: After EVERY interaction (click, fill_form), observe the result and use record_finding if something seems broken.
-- **critical**: If 'To-Do Queue' has items, DO NOT click random links that lead to [VISITED] pages. Use 'navigate' to pick a fresh page.
+- **critical**: If 'To-Do Queue' has items, DO NOT click links marked [TESTED - DO NOT REVISIT]. Use 'navigate' to pick a fresh page from the queue.
 `;
 
     // Intelligent Loop Detection
@@ -402,8 +402,7 @@ What is your next move? Response MUST be a raw JSON object.
 
     logger.log(`Agent Logic: ${parsed.reason}`);
     logger.log(
-      `Action: ${parsed.action} ${
-        parsed.params ? JSON.stringify(parsed.params) : ""
+      `Action: ${parsed.action} ${parsed.params ? JSON.stringify(parsed.params) : ""
       }`
     );
 
@@ -610,8 +609,8 @@ What is your next move? Response MUST be a raw JSON object.
             error.status >= 500
               ? "high"
               : error.status >= 400
-              ? "medium"
-              : "low";
+                ? "medium"
+                : "low";
           this.recordUniqueFinding({
             type: "network_error",
             description: `Network error: ${error.status} ${error.method} ${error.url}`,
