@@ -154,17 +154,40 @@ describe("Validation Errors Tool", () => {
     await page.setContent(`
       <html>
         <body>
-          <div class="error">Same error</div>
-          <div class="validation-error">Same error</div>
+          <!-- Two errors with same message at similar positions (should deduplicate) -->
+          <div class="error" style="position: absolute; top: 10px; left: 10px;">Same error</div>
+          <div class="validation-error" style="position: absolute; top: 12px; left: 11px;">Same error</div>
+          
+          <!-- Same message but at different location (should NOT deduplicate) -->
+          <div class="error" style="position: absolute; top: 100px; left: 100px;">Same error</div>
+          
+          <!-- Different message at same location (should NOT deduplicate) -->
+          <div class="error" style="position: absolute; top: 10px; left: 10px;">Different error</div>
         </body>
       </html>
     `);
 
     const findings = await findValidationErrors(page);
 
-    // Should deduplicate based on message and location
-    const uniqueMessages = new Set(findings.map((f) => f.message));
-    expect(uniqueMessages.size).toBeLessThanOrEqual(findings.length);
+    // Should have 3 unique findings:
+    // 1. "Same error" at ~(10, 10) - deduplicated from 2 elements
+    // 2. "Same error" at (100, 100) - different location
+    // 3. "Different error" at ~(10, 10) - different message
+    expect(findings.length).toBe(3);
+
+    // Verify we have both messages
+    const messages = findings.map((f) => f.message);
+    expect(messages.filter((m) => m === "Same error").length).toBe(2);
+    expect(messages.filter((m) => m === "Different error").length).toBe(1);
+
+    // Verify the two "Same error" findings are at different locations
+    const sameErrorFindings = findings.filter((f) => f.message === "Same error");
+    expect(sameErrorFindings.length).toBe(2);
+    const distance = Math.sqrt(
+      Math.pow(sameErrorFindings[0].location.x - sameErrorFindings[1].location.x, 2) +
+      Math.pow(sameErrorFindings[0].location.y - sameErrorFindings[1].location.y, 2)
+    );
+    expect(distance).toBeGreaterThan(5); // Should be far apart
   });
 
   test("should detect Tailwind error classes", async () => {
