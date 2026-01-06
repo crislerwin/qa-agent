@@ -79,8 +79,8 @@ export async function findBrokenImages(
         continue;
       }
 
-      if (img.complete && img.naturalWidth === 0) {
-        result.reason = "Image failed to load (0 natural width)";
+      if (img.complete && (img.naturalWidth === 0 && img.naturalHeight === 0)) {
+        result.reason = "Image loaded with 0x0 dimensions (failed to decode or 404)"
         broken.push(result);
       }
     }

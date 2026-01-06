@@ -63,7 +63,7 @@ describe("Broken Images Tool", () => {
     const findings = await findBrokenImages(page);
 
     if (findings.length > 0) {
-      expect(findings[0].reason).toContain("Image failed to load");
+      expect(findings[0].reason).toContain("Image loaded with 0x0 dimensions");
     }
   });
 
