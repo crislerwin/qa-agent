@@ -37,7 +37,6 @@ export interface AgentState {
   steps: number;
   history: AgentHistory[]; // Short-term memory
   todoQueue: string[]; // URLs to explore
-  scannedUrls: Set<string>; // URLs that have been scanned for broken images
 }
 
 export interface AgentConfig {
