@@ -267,7 +267,7 @@ INSTRUCTIONS:
 - **critical**: If you see a Login form, TRY to login with both valid and invalid credentials to see what happens.
 - **critical**: Try to add items to cart and proceed to checkout.
 - **critical**: After EVERY interaction (click, fill_form), observe the result and use record_finding if something seems broken.
-- **critical**: If 'To-Do Queue' has items, DO NOT click links marked [TESTED - DO NOT REVISIT]. Use 'navigate' to pick a fresh page from the queue.
+- **critical**: If 'To-Do Queue' has items, DO NOT click links marked [VISITED]. Use 'navigate' to pick a fresh page from the queue.
 `;
 
     // Intelligent Loop Detection
