@@ -10,6 +10,7 @@ import { NetworkMonitor } from "../tools/network-errors.ts";
 import { findValidationErrors } from "../tools/validation-errors.ts";
 import type { AgentConfig, AgentFinding, AgentState } from "../types/index.ts";
 import { SessionRepository } from "../repositories/session.repository.ts";
+import { AuthenticationManager } from "../auth/auth-manager.ts";
 
 const logger = createLogger("agent:exploratory");
 
@@ -20,6 +21,7 @@ export class ExploratoryAgent {
   private consoleMonitor: ConsoleMonitor | null = null;
   private networkMonitor: NetworkMonitor | null = null;
   private sessionRepo: SessionRepository;
+  private authManager: AuthenticationManager;
   private state: AgentState = {
     visitedUrls: new Set(),
     findings: [],
@@ -33,6 +35,11 @@ export class ExploratoryAgent {
     this.config = config;
     this.model = config.model || getDefaultModel();
     this.sessionRepo = new SessionRepository();
+    // Initialize AuthManager with SQlite storage by default
+    this.authManager = new AuthenticationManager({
+      storageType: "sqlite",
+      credentials: config.auth?.credentials // Pass explicit credentials if any
+    });
   }
 
   async start() {
@@ -72,6 +79,25 @@ export class ExploratoryAgent {
       logger.log(
         `Queue initialized with ${discoveredUrls.length} pages from crawl.`
       );
+
+      // Handle Authentication if required
+      if (this.config.auth?.required) {
+        logger.log("Authentication required, attempting to login...");
+        const authRes = await this.authManager.authenticate(this.page, this.config.auth.appIdentifier);
+        if (authRes.success) {
+          logger.log(`✓ Authenticated successfully via ${authRes.method}`);
+        } else {
+          logger.error(`✗ Authentication failed: ${authRes.error}`);
+          if (!this.config.auth.autoLogin) {
+            // If autoLogin is false (or not strictly enforced to stop), maybe we continue?
+            // but usually required means required.
+            // For now, we log error.
+          }
+          // Depending on policy, we might want to throw or continue.
+          // RFC example threw Error.
+          throw new Error(`Authentication failed: ${authRes.error}`);
+        }
+      }
 
       // Initial navigation back to base
       await this.page.goto(this.config.baseUrl);

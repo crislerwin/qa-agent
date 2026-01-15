@@ -44,6 +44,17 @@ export interface AgentConfig {
   maxSteps?: number;
   model?: BaseChatModel;
   sessionId?: string;
+  auth?: {
+    required: boolean;
+    appIdentifier: string;
+    autoLogin?: boolean;
+    credentials?: {
+      username?: string;
+      email?: string;
+      password: string;
+      totpSecret?: string;
+    };
+  };
 }
 
 export interface BrokenImageFinding {
