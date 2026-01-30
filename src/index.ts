@@ -5,6 +5,7 @@ import { generateReport } from "./utils/report.ts";
 import * as clack from "@clack/prompts";
 
 import { SessionRepository } from "./repositories/session.repository.ts";
+import { AppDatabase } from "./database/database.ts";
 
 const logger = createLogger("cli");
 
@@ -46,7 +47,9 @@ async function main() {
   setVerbose(isVerbose as boolean);
 
   // 0c. Session Management
-  const sessionRepo = new SessionRepository();
+  // Initialize shared database
+  const db = AppDatabase.getInstance();
+  const sessionRepo = new SessionRepository(db.getDatabase());
   const existingSessions = sessionRepo.listSessions().slice(0, 5); // Recent 5
 
   let sessionId: string;
@@ -94,7 +97,7 @@ async function main() {
       const reportPath = await generateReport(
         agent.getFindings(),
         agent.getVisitedUrls(),
-        config.sessionId
+        config.sessionId,
       );
       s.stop("Report Generated");
 
@@ -167,7 +170,7 @@ ${wrapText(result.action, 80)}
 
 Reason:
 ${wrapText(result.reason, 80)}`,
-          "Agent Progress"
+          "Agent Progress",
         );
       } else {
         clack.note(
@@ -176,7 +179,7 @@ ${wrapText(result.reason, 80)}
 
 Action:
 ${wrapText(result.action, 80)}`,
-          "Agent Status"
+          "Agent Status",
         );
       }
 

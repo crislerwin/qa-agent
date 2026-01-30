@@ -11,6 +11,7 @@ import { findValidationErrors } from "../tools/validation-errors.ts";
 import type { AgentConfig, AgentFinding, AgentState } from "../types/index.ts";
 import { SessionRepository } from "../repositories/session.repository.ts";
 import { AuthenticationManager } from "../auth/auth-manager.ts";
+import { AppDatabase } from "../database/database.ts";
 
 const logger = createLogger("agent:exploratory");
 
@@ -22,6 +23,7 @@ export class ExploratoryAgent {
   private networkMonitor: NetworkMonitor | null = null;
   private sessionRepo: SessionRepository;
   private authManager: AuthenticationManager;
+  private db: AppDatabase;
   private state: AgentState = {
     visitedUrls: new Set(),
     findings: [],
@@ -34,11 +36,15 @@ export class ExploratoryAgent {
   constructor(config: AgentConfig) {
     this.config = config;
     this.model = config.model || getDefaultModel();
-    this.sessionRepo = new SessionRepository();
-    // Initialize AuthManager with SQlite storage by default
-    this.authManager = new AuthenticationManager({
+
+    // Initialize shared database
+    this.db = AppDatabase.getInstance();
+    const database = this.db.getDatabase();
+
+    // Pass database to repositories and managers
+    this.sessionRepo = new SessionRepository(database);
+    this.authManager = new AuthenticationManager(database, {
       storageType: "sqlite",
-      credentials: config.auth?.credentials // Pass explicit credentials if any
     });
   }
 
@@ -51,11 +57,11 @@ export class ExploratoryAgent {
       if (loadedState) {
         this.state = loadedState;
         logger.info(
-          `Resumed session ${this.config.sessionId}. Step: ${this.state.steps}`
+          `Resumed session ${this.config.sessionId}. Step: ${this.state.steps}`,
         );
       } else {
         logger.info(
-          `No existing state found for session ${this.config.sessionId}. Starting fresh.`
+          `No existing state found for session ${this.config.sessionId}. Starting fresh.`,
         );
       }
     }
@@ -77,13 +83,16 @@ export class ExploratoryAgent {
       const discoveredUrls = await crawlSite(this.page, this.config.baseUrl);
       this.state.todoQueue = [...discoveredUrls];
       logger.log(
-        `Queue initialized with ${discoveredUrls.length} pages from crawl.`
+        `Queue initialized with ${discoveredUrls.length} pages from crawl.`,
       );
 
       // Handle Authentication if required
       if (this.config.auth?.required) {
         logger.log("Authentication required, attempting to login...");
-        const authRes = await this.authManager.authenticate(this.page, this.config.auth.appIdentifier);
+        const authRes = await this.authManager.authenticate(
+          this.page,
+          this.config.auth.appIdentifier,
+        );
         if (authRes.success) {
           logger.log(`✓ Authenticated successfully via ${authRes.method}`);
         } else {
@@ -155,7 +164,7 @@ export class ExploratoryAgent {
 
     const snapshot = await this.page.evaluate((visitedUrls) => {
       const elements = document.querySelectorAll(
-        "a, button, input, select, textarea, img, label"
+        "a, button, input, select, textarea, img, label",
       );
       return Array.from(elements)
         .map((el) => {
@@ -168,8 +177,9 @@ export class ExploratoryAgent {
           const tagName = el.tagName.toLowerCase();
 
           if (tagName === "img") {
-            text = `[Image: ${(el as HTMLImageElement).alt || (el as HTMLImageElement).src
-              }]`;
+            text = `[Image: ${
+              (el as HTMLImageElement).alt || (el as HTMLImageElement).src
+            }]`;
           } else if (tagName === "input") {
             const input = el as HTMLInputElement;
             extra = `[Type: ${input.type}, Name: ${input.name}, ID: ${input.id}]`;
@@ -199,7 +209,6 @@ export class ExploratoryAgent {
               visitedUrls.includes(normalizedHref);
 
             if (isVisited) extra += " [VISITED]";
-
           } else if (el.className) {
             selector = `${tagName}.${el.className.split(" ").join(".")}`;
           } else {
@@ -222,15 +231,16 @@ export class ExploratoryAgent {
     const recentHistory = historySlice
       .map(
         (h, i) =>
-          `Step ${historyStartIndex + i + 1}: ${h.action} (Reason: ${h.reason
-          }) -> Result: ${h.result || "N/A"}`
+          `Step ${historyStartIndex + i + 1}: ${h.action} (Reason: ${
+            h.reason
+          }) -> Result: ${h.result || "N/A"}`,
       )
       .join("\n");
 
-
     let systemPrompt = `
-You are an intelligent QA Testing Agent. Your goal is to explore the web application at ${this.config.baseUrl
-      } and FIND BUGS.
+You are an intelligent QA Testing Agent. Your goal is to explore the web application at ${
+      this.config.baseUrl
+    } and FIND BUGS.
 Target: "${this.config.baseUrl}" - the target web application to explore.
 
 GOALS:
@@ -314,12 +324,12 @@ INSTRUCTIONS:
       last3Steps.every(
         (s) =>
           s.action === firstOfLast3.action &&
-          JSON.stringify(s.params) === JSON.stringify(firstOfLast3.params)
+          JSON.stringify(s.params) === JSON.stringify(firstOfLast3.params),
       );
 
     // 3. Stagnation Detection (staying on page too long without new findings)
     const recentFindings = this.state.findings.filter(
-      (f) => f.url === url
+      (f) => f.url === url,
     ).length; // Total findings on this page
     // (This works because finding logic dedupes, so count grows only with distinct findings/types)
 
@@ -333,7 +343,7 @@ INSTRUCTIONS:
       const uniqueInteractions = new Set(
         this.state.history
           .slice(-stepsOnCurrentUrl)
-          .map((s) => s.action + JSON.stringify(s.params))
+          .map((s) => s.action + JSON.stringify(s.params)),
       ).size;
 
       if (uniqueInteractions < stepsOnCurrentUrl * 0.5) {
@@ -374,8 +384,8 @@ What is your next move? Response MUST be a raw JSON object.
           setTimeout(
             () =>
               reject(new Error(`LLM Request Timed out after ${timeoutMs}ms`)),
-            timeoutMs
-          )
+            timeoutMs,
+          ),
         );
 
         response = await Promise.race([responsePromise, timeoutPromise]);
@@ -425,8 +435,9 @@ What is your next move? Response MUST be a raw JSON object.
 
     logger.log(`Agent Logic: ${parsed.reason}`);
     logger.log(
-      `Action: ${parsed.action} ${parsed.params ? JSON.stringify(parsed.params) : ""
-      }`
+      `Action: ${parsed.action} ${
+        parsed.params ? JSON.stringify(parsed.params) : ""
+      }`,
     );
 
     // 3. Act
@@ -462,7 +473,7 @@ What is your next move? Response MUST be a raw JSON object.
 
   private async executeAction(
     action: string,
-    params: any
+    params: any,
   ): Promise<string | undefined> {
     if (!this.page) return;
 
@@ -508,7 +519,7 @@ What is your next move? Response MUST be a raw JSON object.
 
           if (!targetUrl || typeof targetUrl !== "string") {
             const err = `Navigate failed: Invalid URL parameter. Params received: ${JSON.stringify(
-              params
+              params,
             )}`;
             logger.error(err);
             return err;
@@ -516,7 +527,7 @@ What is your next move? Response MUST be a raw JSON object.
 
           logger.log(`Navigating to: ${targetUrl}`);
           this.state.todoQueue = this.state.todoQueue.filter(
-            (u) => u !== targetUrl
+            (u) => u !== targetUrl,
           );
           await this.page.goto(targetUrl);
           return `Navigated to ${targetUrl}`;
@@ -526,7 +537,7 @@ What is your next move? Response MUST be a raw JSON object.
           let selector = typeof params === "string" ? params : params?.selector;
           if (!selector) {
             throw new Error(
-              "Click action requires a selector (params.selector or string)"
+              "Click action requires a selector (params.selector or string)",
             );
           }
           logger.log(`Clicking selector: ${selector}`);
@@ -536,7 +547,7 @@ What is your next move? Response MUST be a raw JSON object.
         case "fill_form":
           if (!params?.selector || params?.value === undefined) {
             throw new Error(
-              "Fill_form action requires params.selector and params.value"
+              "Fill_form action requires params.selector and params.value",
             );
           }
           logger.log(`Filling form: ${params.selector} = ${params.value}`);
@@ -695,7 +706,7 @@ What is your next move? Response MUST be a raw JSON object.
       (f) =>
         f.type === finding.type &&
         f.description === finding.description &&
-        f.selector === finding.selector
+        f.selector === finding.selector,
     );
 
     if (existingFinding) {
@@ -715,7 +726,7 @@ What is your next move? Response MUST be a raw JSON object.
       }
 
       logger.info(
-        `Aggregated duplicate finding: ${finding.description} (Count: ${existingFinding.count})`
+        `Aggregated duplicate finding: ${finding.description} (Count: ${existingFinding.count})`,
       );
 
       // Update severity if new instance is more critical? (Optional, skipping for now)

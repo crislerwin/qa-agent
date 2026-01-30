@@ -7,20 +7,8 @@ const logger = createLogger("repository:session");
 export class SessionRepository {
   private db: Database;
 
-  constructor(dbPath: string = "agent_state.sqlite") {
-    this.db = new Database(dbPath);
-    this.init();
-  }
-
-  private init() {
-    this.db.run(`
-      CREATE TABLE IF NOT EXISTS sessions (
-        id TEXT PRIMARY KEY,
-        state TEXT NOT NULL,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+  constructor(db: Database) {
+    this.db = db;
   }
 
   saveState(sessionId: string, state: AgentState) {
@@ -34,7 +22,7 @@ export class SessionRepository {
       });
 
       const query = this.db.prepare(`
-        INSERT INTO sessions (id, state, updated_at)
+        INSERT INTO agent_sessions (id, state, updated_at)
         VALUES ($id, $state, CURRENT_TIMESTAMP)
         ON CONFLICT(id) DO UPDATE SET
           state = excluded.state,
@@ -55,7 +43,7 @@ export class SessionRepository {
   loadState(sessionId: string): AgentState | null {
     try {
       const row = this.db
-        .query("SELECT state FROM sessions WHERE id = $id")
+        .query("SELECT state FROM agent_sessions WHERE id = $id")
         .get({
           $id: sessionId,
         }) as { state: string } | null;
@@ -81,7 +69,7 @@ export class SessionRepository {
   listSessions(): string[] {
     try {
       const rows = this.db
-        .query("SELECT id FROM sessions ORDER BY updated_at DESC")
+        .query("SELECT id FROM agent_sessions ORDER BY updated_at DESC")
         .all() as { id: string }[];
       return rows.map((row) => row.id);
     } catch (error) {
