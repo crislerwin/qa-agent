@@ -98,6 +98,7 @@ async function main() {
         agent.getFindings(),
         agent.getVisitedUrls(),
         config.sessionId,
+        config.baseUrl,
       );
       s.stop("Report Generated");
 

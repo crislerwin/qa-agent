@@ -4,16 +4,35 @@ import { promises as fs } from "fs";
 export async function generateReport(
   findings: AgentFinding[],
   visitedUrls?: string[],
-  sessionId?: string
+  sessionId?: string,
+  baseUrl?: string,
 ): Promise<string> {
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const filename = sessionId
     ? `report-${sessionId}.md`
     : `report-${timestamp}.md`;
   const path = `reports/${filename}`;
+
+  // Extract target from baseUrl or visitedUrls
+  let target = baseUrl || "Unknown";
+  if (!baseUrl && visitedUrls && visitedUrls.length > 0) {
+    try {
+      const firstUrl = visitedUrls[0];
+      if (firstUrl) {
+        const url = new URL(firstUrl);
+        target = url.host;
+      }
+    } catch {
+      const firstUrl = visitedUrls[0];
+      if (firstUrl) {
+        target = firstUrl;
+      }
+    }
+  }
+
   let content = `# Exploratory Testing Report
 Date: ${new Date().toLocaleString()}
-Target: with-bugs.practicesoftwaretesting.com
+Target: ${target}
 
 ## Summary
 Total Findings: ${findings.length}
