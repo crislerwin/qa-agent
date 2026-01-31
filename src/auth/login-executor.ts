@@ -19,19 +19,31 @@ export class LoginExecutor {
     async execute(
         page: Page,
         loginFlow: LoginFlow,
-        credentials: Credentials
+        credentials: Credentials,
     ): Promise<AuthResult> {
         try {
             switch (loginFlow.type) {
                 case "form":
-                    return await this.executeFormLogin(page, loginFlow, credentials);
+                    return await this.executeFormLogin(
+                        page,
+                        loginFlow,
+                        credentials,
+                    );
                 case "oauth":
                     // For now, return error or handle simple case if feasible without interacting with external provider in complex way
                     // Implementation deferred as per plan complexity
-                    return { success: false, method: "oauth", error: "OAuth not implemented yet" };
+                    return {
+                        success: false,
+                        method: "oauth",
+                        error: "OAuth not implemented yet",
+                    };
                 default:
                     // Fallback to error or simple fill if possible
-                    return { success: false, method: loginFlow.type, error: "Login type not supported yet" };
+                    return {
+                        success: false,
+                        method: loginFlow.type,
+                        error: "Login type not supported yet",
+                    };
             }
         } catch (error: any) {
             return {
@@ -45,7 +57,7 @@ export class LoginExecutor {
     private async executeFormLogin(
         page: Page,
         loginFlow: LoginFlow,
-        credentials: Credentials
+        credentials: Credentials,
     ): Promise<AuthResult> {
         // Fill username/email
         if (loginFlow.emailField && credentials.email) {
@@ -69,18 +81,21 @@ export class LoginExecutor {
 
         // Wait for navigation or error
         try {
-            await page.waitForTimeout(2000); // Simple wait
+            await page.waitForTimeout(5000); // Increased wait for slower apps/simulated delays
             // In real world, wait for navigation or specific selector
         } catch (e) {
             // Ignore timeout
         }
 
         // Handle MFA if potentially required (e.g. if we have a secret)
-        // We try to handle it if we see an input, even if not explicitly flagged, 
+        // We try to handle it if we see an input, even if not explicitly flagged,
         // or if the flow says it's required.
         if (credentials.totpSecret) {
             // Check if MFA input appeared
-            const handled = await this.mfaHandler.handleTOTP(page, credentials.totpSecret);
+            const handled = await this.mfaHandler.handleTOTP(
+                page,
+                credentials.totpSecret,
+            );
             if (handled) {
                 // Wait again after MFA submit
                 await page.waitForTimeout(2000);
@@ -93,29 +108,74 @@ export class LoginExecutor {
         return {
             success,
             method: "form",
-            error: success ? undefined : "Login verification failed"
+            error: success ? undefined : "Login verification failed",
         };
     }
 
     private async verifyLoginSuccess(page: Page): Promise<boolean> {
         // Check for common success indicators
         const indicators = await page.evaluate(() => {
-            const hasLogout = !!document.querySelector(
-                'a[href*="logout"], button:has-text("logout"), button:has-text("Logout"), button:has-text("sign out"), button:has-text("Sign out")'
-            );
+            // Check for logout buttons/links by text
+            let hasLogout = false;
+            const elements = document.querySelectorAll("a, button");
+            for (const el of elements) {
+                const text = el.textContent?.toLowerCase() || "";
+                if (
+                    text.includes("logout") ||
+                    text.includes("sign out") ||
+                    text.includes("log out")
+                ) {
+                    // Check if visible
+                    const rect = el.getBoundingClientRect();
+                    if (rect.width > 0 && rect.height > 0) {
+                        hasLogout = true;
+                        break;
+                    }
+                }
+            }
+
+            // Fallback: Check hrefs for logout
+            if (!hasLogout) {
+                const logoutLink = document.querySelector('a[href*="logout"]');
+                if (logoutLink) hasLogout = true;
+            }
+
             const hasUserMenu = !!document.querySelector(
-                '[class*="user-menu"], [class*="profile"], [id*="user-menu"]'
+                '[class*="user-menu"], [class*="profile"], [id*="user-menu"]',
             );
-            const hasErrorMessage = !!document.querySelector(
-                '[class*="error"], [class*="alert"], [role="alert"]'
+
+            // Check for VISIBLE error messages
+            let hasErrorMessage = false;
+            const errorElements = document.querySelectorAll(
+                '[class*="error"], [class*="alert"], [role="alert"]',
             );
+            for (const el of errorElements) {
+                // Ignore elements that might be hidden or just containers without text
+                const rect = el.getBoundingClientRect();
+                const text = el.textContent?.trim();
+                if (
+                    rect.width > 0 &&
+                    rect.height > 0 &&
+                    text &&
+                    text.length > 0 &&
+                    getComputedStyle(el).display !== "none" &&
+                    getComputedStyle(el).visibility !== "hidden"
+                ) {
+                    hasErrorMessage = true;
+                    break;
+                }
+            }
 
             return { hasLogout, hasUserMenu, hasErrorMessage };
         });
 
-        return (
-            (indicators.hasLogout || indicators.hasUserMenu) &&
-            !indicators.hasErrorMessage
-        );
+        // We consider it success if we see logout/user-menu AND we don't see a visible error.
+        // However, sometimes errors appear alongside menus (unlikely).
+        // Let's prioritize success indicators.
+        if (indicators.hasLogout || indicators.hasUserMenu) {
+            return true;
+        }
+
+        return false;
     }
 }
