@@ -48,6 +48,127 @@ async function main() {
     // Set global log level
     setVerbose(isVerbose as boolean);
 
+    // 0c. Configuration: Test Generation
+    const enableTestGeneration = await clack.confirm({
+        message: "Enable Test Generation? (Generate automated tests from findings)",
+        initialValue: true,
+    });
+
+    if (clack.isCancel(enableTestGeneration)) {
+        clack.outro("Operation cancelled.");
+        process.exit(0);
+    }
+
+    let testConfig: {
+        testOutputDir?: string;
+        includeE2ETests?: boolean;
+        includeIntegrationTests?: boolean;
+        includeUnitTests?: boolean;
+        testDryRun?: boolean;
+        testParallelExecution?: boolean;
+        testMaxConcurrency?: number;
+        testTimeout?: number;
+        testRetryCount?: number;
+    } = {};
+
+    if (enableTestGeneration) {
+        // Test Generation Configuration
+        const testTypes = await clack.multiselect({
+            message: "Select test types to generate:",
+            options: [
+                { value: "e2e", label: "E2E Tests (Browser automation)" },
+                { value: "integration", label: "Integration Tests (Component interactions)" },
+                { value: "unit", label: "Unit Tests (Individual functions)" },
+            ],
+            initialValues: ["e2e", "integration"],
+        });
+
+        if (clack.isCancel(testTypes)) {
+            clack.outro("Operation cancelled.");
+            process.exit(0);
+        }
+
+        const testExecutionMode = await clack.select({
+            message: "Test execution mode:",
+            options: [
+                { value: "dry-run", label: "Dry Run (Generate only, don't execute)" },
+                { value: "sequential", label: "Sequential (Execute tests one by one)" },
+                { value: "parallel", label: "Parallel (Execute multiple tests concurrently)" },
+            ],
+        });
+
+        if (clack.isCancel(testExecutionMode)) {
+            clack.outro("Operation cancelled.");
+            process.exit(0);
+        }
+
+        // Advanced configuration (optional)
+        const showAdvanced = await clack.confirm({
+            message: "Configure advanced test options?",
+            initialValue: false,
+        });
+
+        if (clack.isCancel(showAdvanced)) {
+            clack.outro("Operation cancelled.");
+            process.exit(0);
+        }
+
+        let maxConcurrencyValue = 4;
+        let timeoutValue = 30000;
+        let retryCountValue = 2;
+
+        if (showAdvanced) {
+            const maxConcurrencyInput = await clack.text({
+                message: "Maximum parallel test executions:",
+                defaultValue: "4",
+                placeholder: "4",
+            });
+
+            if (clack.isCancel(maxConcurrencyInput)) {
+                clack.outro("Operation cancelled.");
+                process.exit(0);
+            }
+
+            const timeoutInput = await clack.text({
+                message: "Test timeout (milliseconds):",
+                defaultValue: "30000",
+                placeholder: "30000",
+            });
+
+            if (clack.isCancel(timeoutInput)) {
+                clack.outro("Operation cancelled.");
+                process.exit(0);
+            }
+
+            const retryCountInput = await clack.text({
+                message: "Retry count for failed tests:",
+                defaultValue: "2",
+                placeholder: "2",
+            });
+
+            if (clack.isCancel(retryCountInput)) {
+                clack.outro("Operation cancelled.");
+                process.exit(0);
+            }
+
+            maxConcurrencyValue = parseInt(String(maxConcurrencyInput)) || 4;
+            timeoutValue = parseInt(String(timeoutInput)) || 30000;
+            retryCountValue = parseInt(String(retryCountInput)) || 2;
+        }
+
+        testConfig = {
+            testOutputDir: "./generated-tests",
+            includeE2ETests: (testTypes as string[]).includes("e2e"),
+            includeIntegrationTests: (testTypes as string[]).includes("integration"),
+            includeUnitTests: (testTypes as string[]).includes("unit"),
+            testDryRun: testExecutionMode === "dry-run",
+            testParallelExecution: testExecutionMode === "parallel",
+            testMaxConcurrency: maxConcurrencyValue,
+            testTimeout: timeoutValue,
+            testRetryCount: retryCountValue,
+        };
+    }
+
     // 0c. Session Management
     // Initialize shared database
     const db = AppDatabase.getInstance();
@@ -181,6 +302,8 @@ async function main() {
         maxSteps: 10,
         sessionId: sessionId,
         auth: authConfig,
+        enableTestGeneration: enableTestGeneration,
+        ...testConfig,
     };
 
     const agent = new ExploratoryAgent(config);
@@ -295,13 +418,19 @@ ${wrapText(result.action, 80)}`,
             }
 
             // 2. Human-in-the-loop
+            const explorationOptions = [
+                { value: "continue", label: "Continue Exploration" },
+                { value: "guidance", label: "Give Guidance/Feedback" },
+                { value: "stop", label: "Stop & Report" },
+            ];
+
+            if (enableTestGeneration) {
+                explorationOptions.push({ value: "generate-tests", label: "Generate Tests Now (Continue after)" });
+            }
+
             const answer = await clack.select({
                 message: "What should the agent do next?",
-                options: [
-                    { value: "continue", label: "Continue Exploration" },
-                    { value: "guidance", label: "Give Guidance/Feedback" },
-                    { value: "stop", label: "Stop & Report" },
-                ],
+                options: explorationOptions,
             });
 
             if (clack.isCancel(answer)) {
@@ -327,11 +456,86 @@ ${wrapText(result.action, 80)}`,
                     nextGuidance = userGuidance;
                     clack.log.info(`Guidance recorded: "${nextGuidance}"`);
                 }
+            } else if (answer === "generate-tests") {
+                const testSpinner = clack.spinner();
+                
+                try {
+                    testSpinner.start("Generating tests from current findings...");
+                    
+                    const generatedTests = await agent.generateTests();
+                    
+                    if (generatedTests.length > 0) {
+                        testSpinner.stop(`Generated ${generatedTests.length} tests`);
+                        clack.log.success(`✅ Generated ${generatedTests.length} automated tests from current findings`);
+                        
+                        // Brief summary
+                        const summary = {
+                            total: generatedTests.length,
+                            e2e: generatedTests.filter(t => t.testType === 'e2e').length,
+                            integration: generatedTests.filter(t => t.testType === 'integration').length,
+                            unit: generatedTests.filter(t => t.testType === 'unit').length,
+                        };
+                        
+                        clack.log.info(`📊 ${summary.total} tests (${summary.e2e} E2E, ${summary.integration} Integration, ${summary.unit} Unit)`);
+                    } else {
+                        testSpinner.stop("No tests generated");
+                        clack.log.warn("No tests could be generated from current findings");
+                    }
+                } catch (error) {
+                    testSpinner.stop("Test generation failed");
+                    logger.error("Test generation failed:", error);
+                    clack.log.warn("Test generation failed, continuing exploration...");
+                }
+                
+                // Continue exploration after test generation
+                continue;
             }
         }
 
         // Generate Report (normal flow)
         await generateAndDisplayReport();
+
+        // Generate Tests (if enabled)
+        if (enableTestGeneration) {
+            const testSpinner = clack.spinner();
+            
+            try {
+                testSpinner.start("Generating automated tests from findings...");
+                
+                const generatedTests = await agent.generateTests();
+                
+                if (generatedTests.length > 0) {
+                    testSpinner.stop(`Generated ${generatedTests.length} automated tests`);
+                    
+                    // Show test summary
+                    const testSummary = generatedTests.reduce((acc, test) => {
+                        acc[test.testType] = (acc[test.testType] || 0) + 1;
+                        acc[test.priority] = (acc[test.priority] || 0) + 1;
+                        acc.total = (acc.total || 0) + 1;
+                        return acc;
+                    }, {} as Record<string, number>);
+                    
+                    clack.note(`
+📊 Test Generation Summary:
+• Total Tests: ${testSummary.total}
+• E2E Tests: ${testSummary.e2e || 0}
+• Integration Tests: ${testSummary.integration || 0}
+• Unit Tests: ${testSummary.unit || 0}
+• High Priority: ${testSummary.high || 0}
+• Medium Priority: ${testSummary.medium || 0}
+• Low Priority: ${testSummary.low || 0}
+
+📁 Test files saved to: ./generated-tests/
+📄 Execution report saved to: ./reports/`, "Tests Generated");
+                } else {
+                    testSpinner.stop("No tests generated (no findings or test generation disabled)");
+                }
+            } catch (error) {
+                testSpinner.stop("Test generation failed");
+                logger.error("Test generation failed:", error);
+                clack.log.warn("Test generation encountered an error, but exploration was successful.");
+            }
+        }
     } catch (error: any) {
         // Check if this is a user cancellation
         if (

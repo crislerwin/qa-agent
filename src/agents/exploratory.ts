@@ -12,6 +12,8 @@ import type { AgentConfig, AgentFinding, AgentState } from "../types/index.ts";
 import { SessionRepository } from "../repositories/session.repository.ts";
 import { AuthenticationManager } from "../auth/auth-manager.ts";
 import { AppDatabase } from "../database/database.ts";
+import { TestGenerator, type TestGenerationConfig, type GeneratedTest } from "../services/test-generator.ts";
+import { TestExecutor, type TestExecutionConfig } from "../services/test-executor.ts";
 
 const logger = createLogger("agent:exploratory");
 
@@ -32,6 +34,8 @@ export class ExploratoryAgent {
         todoQueue: [],
     };
     private config: AgentConfig;
+    private testGenerator: TestGenerator | null = null;
+    private testExecutor: TestExecutor | null = null;
 
     constructor(config: AgentConfig) {
         this.config = config;
@@ -46,6 +50,29 @@ export class ExploratoryAgent {
         this.authManager = new AuthenticationManager(database, {
             storageType: "sqlite",
         });
+
+        // Initialize test generation components if enabled
+        if (config.enableTestGeneration) {
+            const testConfig: TestGenerationConfig = {
+                outputDir: config.testOutputDir || "./generated-tests",
+                includeE2E: config.includeE2ETests !== false,
+                includeIntegration: config.includeIntegrationTests !== false,
+                includeUnit: config.includeUnitTests !== false,
+                testFramework: "bun"
+            };
+
+            this.testGenerator = new TestGenerator(this.model, testConfig);
+            
+            const executionConfig: TestExecutionConfig = {
+                dryRun: config.testDryRun || false,
+                parallel: config.testParallelExecution || false,
+                maxConcurrency: config.testMaxConcurrency || 4,
+                timeout: config.testTimeout || 30000,
+                retryCount: config.testRetryCount || 2
+            };
+
+            this.testExecutor = new TestExecutor(executionConfig);
+        }
     }
 
     async start() {
@@ -785,5 +812,44 @@ What is your next move? Response MUST be a raw JSON object.
 
     getVisitedUrls() {
         return Array.from(this.state.visitedUrls);
+    }
+
+    async generateTests(): Promise<GeneratedTest[]> {
+        if (!this.testGenerator) {
+            logger.warn("Test generation not enabled");
+            return [];
+        }
+
+        logger.info(`Generating tests from ${this.state.findings.length} findings`);
+
+        try {
+            const generatedTests = await this.testGenerator.generateTestsFromFindings(
+                this.state.findings,
+                this.state,
+                this.config.baseUrl
+            );
+
+            if (this.testExecutor) {
+                // Save test files
+                const savedFiles = await this.testExecutor.saveTests(generatedTests);
+                logger.info(`Saved ${savedFiles.length} test files`);
+
+                // Execute tests
+                const results = await this.testExecutor.executeTests(generatedTests);
+                logger.info(`Executed ${results.length} tests`);
+
+                // Generate report
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                const reportPath = `reports/test-execution-${timestamp}.md`;
+                await this.testExecutor.saveTestReport(results, reportPath);
+
+                return generatedTests;
+            }
+
+            return generatedTests;
+        } catch (error) {
+            logger.error("Failed to generate tests:", error);
+            return [];
+        }
     }
 }

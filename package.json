@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "cli": "bun run src/index.ts",
-    "build": "bun build src/agent/cli.ts --outdir ./dist --target bun --external playwright-core",
+    "demo-test-generation": "bun run src/cli/demo-test-generation.ts",
+    "build": "bun build src/index.ts --outdir ./dist --target bun --external playwright-core",
     "start": "bun run dist/cli.js",
     "test": "bun test"
   },

@@ -55,6 +55,17 @@ export interface AgentConfig {
       totpSecret?: string;
     };
   };
+  // Test generation configuration
+  enableTestGeneration?: boolean;
+  testOutputDir?: string;
+  includeE2ETests?: boolean;
+  includeIntegrationTests?: boolean;
+  includeUnitTests?: boolean;
+  testDryRun?: boolean;
+  testParallelExecution?: boolean;
+  testMaxConcurrency?: number;
+  testTimeout?: number;
+  testRetryCount?: number;
 }
 
 export interface BrokenImageFinding {
