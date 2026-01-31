@@ -413,15 +413,19 @@ test.describe('Broken Images - E2E Tests', () => {
 });
 ```
 
-### Demo Script
-
-For a quick demonstration of the test generation capability:
+## 🚀 **Complete Workflow**
 
 ```bash
-bun run demo-test-generation
+# 1. Start agent (choose "Enable Test Generation")
+bun run cli
+
+# 2. Agent explores and generates E2E tests automatically
+# 3. Run generated tests
+bun run run-tests
+# Choose "Run all tests"
 ```
 
-This script shows sample test generation from example findings.
+The generated tests are standard Playwright tests that run with any Playwright command.
 
 ## Future Enhancements
 
