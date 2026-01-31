@@ -14,6 +14,18 @@ This agent autonomously navigates a target web application (specifically [Practi
 
 The agent uses an LLM to make intelligent decisions about where to go and what to test next based on the current page state.
 
+## 🧪 Automated E2E Test Generation
+
+The agent now includes **automated E2E test generation** that creates Playwright tests based on discovered bugs and issues:
+
+- **E2E Tests Only**: Generates browser-based tests that interact with the actual running application
+- **No Source Code Required**: Tests are created from the agent's exploration findings, not component inspection
+- **Smart Categorization**: Groups findings by type (broken images, console errors, network errors, etc.)
+- **Configurable Execution**: Choose between dry-run, sequential, or parallel test execution
+- **Comprehensive Reports**: Detailed execution reports with pass/fail statistics
+
+**Why E2E only?** The agent explores live applications without access to source code. E2E tests validate what users actually experience, while unit/integration tests would require component analysis which isn't available during exploration.
+
 ## 🛠️ Stack
 
 - **Language:** TypeScript

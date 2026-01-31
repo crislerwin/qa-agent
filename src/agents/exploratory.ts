@@ -55,10 +55,7 @@ export class ExploratoryAgent {
         if (config.enableTestGeneration) {
             const testConfig: TestGenerationConfig = {
                 outputDir: config.testOutputDir || "./generated-tests",
-                includeE2E: config.includeE2ETests !== false,
-                includeIntegration: config.includeIntegrationTests !== false,
-                includeUnit: config.includeUnitTests !== false,
-                testFramework: "bun"
+                includeE2E: config.includeE2ETests !== false
             };
 
             this.testGenerator = new TestGenerator(this.model, testConfig);

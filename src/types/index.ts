@@ -59,8 +59,6 @@ export interface AgentConfig {
   enableTestGeneration?: boolean;
   testOutputDir?: string;
   includeE2ETests?: boolean;
-  includeIntegrationTests?: boolean;
-  includeUnitTests?: boolean;
   testDryRun?: boolean;
   testParallelExecution?: boolean;
   testMaxConcurrency?: number;

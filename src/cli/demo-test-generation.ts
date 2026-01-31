@@ -44,8 +44,6 @@ const sampleState: AgentState = {
 const testConfig = {
   outputDir: "./demo-tests",
   includeE2E: true,
-  includeIntegration: true,
-  includeUnit: false,
   testFramework: "bun" as const
 };
 

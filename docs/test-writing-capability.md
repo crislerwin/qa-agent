@@ -1,8 +1,10 @@
-# Test Writing Capability Documentation
+# E2E Test Writing Capability Documentation
 
 ## Overview
 
-The QA Agent now includes automated test generation capabilities that can create comprehensive test suites based on exploration findings. This feature leverages the agent's bug discovery process to generate relevant, targeted tests that validate the issues found during exploration.
+The QA Agent now includes automated E2E test generation capabilities that create browser-based tests from exploration findings. This feature leverages the agent's bug discovery process to generate relevant, targeted Playwright tests that validate the issues found during exploration.
+
+**Important Note**: The agent generates E2E tests because it interacts with the actual running application. Unit and integration tests would require access to source code/components, which is not available during exploration.
 
 ## Architecture
 
@@ -24,22 +26,12 @@ The QA Agent now includes automated test generation capabilities that can create
 
 ## Features
 
-### Test Types
+### Test Type: E2E Tests
 
-1. **E2E Tests**
-   - Full browser automation tests using Playwright
-   - Tests user flows and interactions
-   - Validates bug fixes from end-user perspective
-
-2. **Integration Tests**
-   - Component interaction testing
-   - Service/API integration validation
-   - Mocked external dependencies
-
-3. **Unit Tests**
-   - Isolated function testing
-   - Edge cases and error conditions
-   - Pure logic validation
+- **Full browser automation tests** using Playwright
+- **Tests user flows and interactions** through the actual application
+- **Validates bug fixes** from end-user perspective
+- **No source code required** - tests what users actually experience
 
 ### Test Generation Process
 
@@ -57,11 +49,9 @@ interface AgentConfig {
   // ... existing config
   
   // Test generation settings
-  enableTestGeneration?: boolean;           // Enable/disable test generation
+  enableTestGeneration?: boolean;           // Enable/disable E2E test generation
   testOutputDir?: string;                    // Output directory for generated tests
   includeE2ETests?: boolean;                 // Generate E2E tests (default: true)
-  includeIntegrationTests?: boolean;         // Generate integration tests (default: true)
-  includeUnitTests?: boolean;                // Generate unit tests (default: true)
   
   // Execution settings
   testDryRun?: boolean;                      // Skip actual test execution (default: false)
@@ -82,18 +72,14 @@ The test generation capability is now integrated into the main CLI flow. When yo
 bun run cli
 ```
 
-You'll be prompted with test generation options:
+You'll be prompted with E2E test generation options:
 
-1. **Enable Test Generation**: Choose whether to generate automated tests from findings
-2. **Select Test Types**: Choose which test types to generate:
-   - E2E Tests (Browser automation)
-   - Integration Tests (Component interactions)  
-   - Unit Tests (Individual functions)
-3. **Execution Mode**: Select how tests should be executed:
+1. **Enable Test Generation**: Choose whether to generate E2E tests from findings
+2. **Execution Mode**: Select how tests should be executed:
    - Dry Run (Generate only, don't execute)
    - Sequential (Execute tests one by one)
    - Parallel (Execute multiple tests concurrently)
-4. **Advanced Options** (optional): Configure concurrency, timeouts, and retry counts
+3. **Advanced Options** (optional): Configure concurrency, timeouts, and retry counts
 
 The tests will be generated automatically after exploration completes, or you can choose "Generate Tests Now" during exploration.
 
@@ -125,21 +111,18 @@ console.log(`Generated ${tests.length} tests`);
 
 ## Test File Structure
 
-Generated tests follow this organizational pattern:
+Generated E2E tests follow this organizational pattern:
 
 ```
 generated-tests/
 ├── broken-images/
-│   ├── e2e-2024-01-31-1.test.ts
-│   └── integration-2024-01-31-1.test.ts
+│   └── e2e-2024-01-31-1.spec.ts
 ├── console-errors/
-│   ├── e2e-2024-01-31-1.test.ts
-│   └── unit-2024-01-31-1.test.ts
+│   └── e2e-2024-01-31-1.spec.ts
 ├── network-errors/
-│   └── e2e-2024-01-31-1.test.ts
+│   └── e2e-2024-01-31-1.spec.ts
 └── functional/
-    ├── e2e-2024-01-31-1.test.ts
-    └── integration-2024-01-31-1.test.ts
+    └── e2e-2024-01-31-1.spec.ts
 ```
 
 ## Test Reports
@@ -171,73 +154,61 @@ The test generation capability is designed to work seamlessly with the existing 
 ## Example Generated Test
 
 ```typescript
-import { describe, test, expect, beforeAll, afterAll, beforeEach } from "bun:test";
-import { chromium, type Browser, type Page, type BrowserContext } from "playwright-core";
+import { test, expect } from '@playwright/test';
 
-describe("Broken Images - E2E Tests", () => {
-  let browser: Browser;
-  let context: BrowserContext;
-  let page: Page;
-
-  beforeAll(async () => {
-    browser = await chromium.launch({ headless: true });
+test.describe('Broken Images - E2E Tests', () => {
+  test('should detect missing logo image', async ({ page }) => {
+    // Navigate to page with broken image
+    await page.goto('https://example.com/products');
+    
+    // Wait for page to load
+    await page.waitForLoadState('networkidle');
+    
+    // Check for missing image
+    const logoImage = page.locator('img.logo');
+    await expect(logoImage).toBeVisible();
+    
+    // Verify image has valid src attribute
+    const src = await logoImage.getAttribute('src');
+    expect(src).toBeTruthy();
+    expect(src).not.toBe('');
   });
 
-  beforeEach(async () => {
-    context = await browser.newContext();
-    page = await context.newPage();
-  });
-
-  afterAll(async () => {
-    await browser.close();
-  });
-
-  test("should detect and report broken images on product pages", async () => {
-    await page.goto("https://your-app.com/products");
-    
-    // Wait for images to load
-    await page.waitForTimeout(2000);
-    
-    // Check for broken images
-    const brokenImages = await page.evaluate(() => {
-      const images = document.querySelectorAll('img');
-      const broken = [];
-      
-      images.forEach(img => {
-        if (!img.src && !img.srcset) {
-          broken.push({
-            selector: img.tagName.toLowerCase() + 
-                     (img.id ? '#' + img.id : '') + 
-                     (img.className ? '.' + img.className.split(' ').join('.') : ''),
-            alt: img.alt || 'No alt text',
-            reason: 'Missing src and srcset attributes'
-          });
-        }
-      });
-      
-      return broken;
-    });
-
-    expect(brokenImages.length).toBe(0);
-  });
-
-  test("should handle images with 404 errors gracefully", async () => {
-    await page.goto("https://your-app.com/products");
-    
-    // Monitor for failed image requests
-    const failedRequests: string[] = [];
-    
+  test('should handle 404 image requests', async ({ page }) => {
+    // Monitor network requests
+    const failedRequests = [];
     page.on('response', response => {
-      if (response.url().includes('.jpg') || response.url().includes('.png')) {
+      if (response.url().match(/\.(jpg|jpeg|png|gif|webp)$/)) {
         if (response.status() === 404) {
           failedRequests.push(response.url());
         }
       }
     });
     
-    await page.waitForTimeout(2000);
+    await page.goto('https://example.com/products');
+    await page.waitForLoadState('networkidle');
     
+    // Assert no 404 image requests
     expect(failedRequests.length).toBe(0);
+  });
+
+  test('mocks API response for product images', async ({ page }) => {
+    // Mock image API to prevent 404s
+    await page.route('**/api/images/**', async (route) => {
+      const json = [{ url: '/images/placeholder.jpg', id: 1 }];
+      await route.fulfill({ 
+        status: 200, 
+        contentType: 'application/json',
+        body: JSON.stringify(json)
+      });
+    });
+    
+    await page.goto('https://example.com/products');
+    await page.waitForLoadState('networkidle');
+    
+    // Verify placeholder image is loaded
+    const productImage = page.locator('img.product-image');
+    await expect(productImage).toBeVisible();
   });
 });
 ```

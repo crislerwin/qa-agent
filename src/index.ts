@@ -72,24 +72,8 @@ async function main() {
     } = {};
 
     if (enableTestGeneration) {
-        // Test Generation Configuration
-        const testTypes = await clack.multiselect({
-            message: "Select test types to generate:",
-            options: [
-                { value: "e2e", label: "E2E Tests (Browser automation)" },
-                { value: "integration", label: "Integration Tests (Component interactions)" },
-                { value: "unit", label: "Unit Tests (Individual functions)" },
-            ],
-            initialValues: ["e2e", "integration"],
-        });
-
-        if (clack.isCancel(testTypes)) {
-            clack.outro("Operation cancelled.");
-            process.exit(0);
-        }
-
         const testExecutionMode = await clack.select({
-            message: "Test execution mode:",
+            message: "E2E Test execution mode:",
             options: [
                 { value: "dry-run", label: "Dry Run (Generate only, don't execute)" },
                 { value: "sequential", label: "Sequential (Execute tests one by one)" },
@@ -158,9 +142,7 @@ async function main() {
 
         testConfig = {
             testOutputDir: "./generated-tests",
-            includeE2ETests: (testTypes as string[]).includes("e2e"),
-            includeIntegrationTests: (testTypes as string[]).includes("integration"),
-            includeUnitTests: (testTypes as string[]).includes("unit"),
+            includeE2ETests: true,
             testDryRun: testExecutionMode === "dry-run",
             testParallelExecution: testExecutionMode === "parallel",
             testMaxConcurrency: maxConcurrencyValue,
@@ -471,12 +453,12 @@ ${wrapText(result.action, 80)}`,
                         // Brief summary
                         const summary = {
                             total: generatedTests.length,
-                            e2e: generatedTests.filter(t => t.testType === 'e2e').length,
-                            integration: generatedTests.filter(t => t.testType === 'integration').length,
-                            unit: generatedTests.filter(t => t.testType === 'unit').length,
+                            high: generatedTests.filter(t => t.priority === 'high').length,
+                            medium: generatedTests.filter(t => t.priority === 'medium').length,
+                            low: generatedTests.filter(t => t.priority === 'low').length,
                         };
                         
-                        clack.log.info(`📊 ${summary.total} tests (${summary.e2e} E2E, ${summary.integration} Integration, ${summary.unit} Unit)`);
+                        clack.log.info(`📊 Generated ${summary.total} E2E tests (${summary.high} high, ${summary.medium} medium, ${summary.low} low priority)`);
                     } else {
                         testSpinner.stop("No tests generated");
                         clack.log.warn("No tests could be generated from current findings");
@@ -516,11 +498,8 @@ ${wrapText(result.action, 80)}`,
                     }, {} as Record<string, number>);
                     
                     clack.note(`
-📊 Test Generation Summary:
+📊 E2E Test Generation Summary:
 • Total Tests: ${testSummary.total}
-• E2E Tests: ${testSummary.e2e || 0}
-• Integration Tests: ${testSummary.integration || 0}
-• Unit Tests: ${testSummary.unit || 0}
 • High Priority: ${testSummary.high || 0}
 • Medium Priority: ${testSummary.medium || 0}
 • Low Priority: ${testSummary.low || 0}
