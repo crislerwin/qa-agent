@@ -43,8 +43,7 @@ const sampleState: AgentState = {
 
 const testConfig = {
   outputDir: "./demo-tests",
-  includeE2E: true,
-  testFramework: "bun" as const
+  includeE2E: true
 };
 
 console.log("🚀 Test Writing Capability Demo");

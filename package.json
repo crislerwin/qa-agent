@@ -7,6 +7,8 @@
     "cli": "bun run src/index.ts",
     "demo-test-generation": "bun run src/cli/demo-test-generation.ts",
     "validate-playwright": "bun run src/cli/validate-playwright.ts",
+    "validate-corrected": "bun run src/cli/validate-corrected.ts",
+    "run-tests": "bun run src/cli/run-tests.ts",
     "build": "bun build src/index.ts --outdir ./dist --target bun --external playwright-core",
     "start": "bun run dist/cli.js",
     "test": "bun test"

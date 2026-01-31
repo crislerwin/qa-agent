@@ -126,16 +126,45 @@ Requirements:
 
 Format your response as a single test file with proper imports and Playwright test structure.
 
+IMPORTANT FIXTURE USAGE RULES:
+- Use { page } fixture in individual tests ONLY
+- Use { context } fixture in individual tests ONLY  
+- DO NOT use fixtures in beforeAll/afterAll - use manual setup there
+- For shared setup between tests, use beforeEach with fixtures
+- For one-time setup, use beforeAll without fixtures and create manually
+
 Example format:
-import { test, expect } from '@playwright/test';
+import { test, expect, type Browser, type Page } from '@playwright/test';
+import { chromium } from 'playwright';
 
 test.describe('Category Name Tests', () => {
-  test.beforeEach(async ({ page }) => {
-    // setup
+  let browser: Browser;
+  let context: any;
+  let page: Page;
+
+  test.beforeAll(async () => {
+    // One-time setup without fixtures
+    browser = await chromium.launch();
+    context = await browser.newContext();
+    page = await context.newPage();
   });
 
-  test('should handle specific issue', async ({ page }) => {
+  test.afterAll(async () => {
+    // Cleanup without fixtures
+    await context.close();
+    await browser.close();
+  });
+
+  test('should handle specific issue', async ({ page: testPage }) => {
+    // Use fixture for this specific test
+    await testPage.goto('https://example.com');
     // test implementation
+  });
+
+  test('should handle another issue', async ({ page: testPage }) => {
+    // Use fixture for this specific test
+    await testPage.goto('https://example.com/other');
+    // test implementation  
   });
 });`;
   }

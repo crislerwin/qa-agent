@@ -143,6 +143,205 @@ The test generation capability is designed to work seamlessly with the existing 
 4. **Test Execution**: Tests are executed with configurable options
 5. **Reporting**: Comprehensive reports are generated
 
+## Running Generated Tests
+
+The generated E2E tests are standard Playwright tests and can be run in several ways:
+
+### 🚀 **Quick Start Options**
+
+#### 1. **Using Helper Script (Recommended)**
+```bash
+# Interactive test runner with UI
+bun run run-tests
+```
+
+#### 2. **Direct Playwright Commands**
+```bash
+# Install Playwright browsers (one-time setup)
+npx playwright install
+
+# Run all generated tests
+npx playwright test generated-tests/
+
+# Run with provided config
+npx playwright test --config=playwright.config.ts
+```
+
+### 📋 **Test Execution Options**
+
+#### **Run All Tests**
+```bash
+# From project root
+npx playwright test generated-tests/
+
+# Using the provided config file
+npx playwright test
+```
+
+#### **Run Specific Test Files**
+```bash
+# Run single test file
+npx playwright test generated-tests/broken-images/e2e-2024-01-31-1.spec.ts
+
+# Run all tests in a directory
+npx playwright test generated-tests/broken-images/
+
+# Run tests matching pattern
+npx playwright test generated-tests/**/*.spec.ts
+```
+
+#### **Run with Options**
+```bash
+# Run with headed browser (show browser window)
+npx playwright test --headed
+
+# Run on specific browser
+npx playwright test --browser=chromium
+npx playwright test --browser=firefox
+npx playwright test --browser=webkit
+
+# Run in debug mode
+npx playwright test --debug
+
+# Run with timeout
+npx playwright test --timeout=60000
+
+# Run tests in parallel
+npx playwright test --workers=4
+```
+
+#### **Development Mode**
+```bash
+# Run in watch mode (auto-rerun on changes)
+npx playwright test --watch
+
+# Run with visual test runner UI
+npx playwright test --ui
+```
+
+### 🔧 **Setup Requirements**
+
+#### **Install Playwright**
+```bash
+# Install all browsers
+npx playwright install
+
+# Install specific browsers
+npx playwright install chromium
+npx playwright install firefox
+npx playwright install webkit
+```
+
+#### **Environment Variables**
+```bash
+# For CI environments
+CI=true npx playwright test
+
+# For specific browser preference
+BROWSER=chromium npx playwright test
+```
+
+### 🎯 **Common Usage Patterns**
+
+#### **After Agent Exploration**
+```bash
+# 1. Agent generates tests
+bun run cli
+
+# 2. Run the generated tests
+bun run run-tests
+# Choose "Run all generated tests"
+```
+
+#### **During Development**
+```bash
+# Generate tests with dry-run first
+bun run cli
+
+# Run in watch mode while fixing issues
+npx playwright test generated-tests/ --watch
+
+# Use UI for better debugging
+npx playwright test --ui
+```
+
+### 📊 **Test Reports**
+
+After running tests, reports are generated in:
+- `test-results/` - HTML reports and screenshots
+- `playwright-report/` - Detailed test execution reports
+
+View reports:
+```bash
+# Open HTML report
+npx playwright show-report
+
+# Or open the report directory
+open test-results/index.html
+```
+
+### 2. **Run Specific Test Files**
+```bash
+# Run single test file
+npx playwright test generated-tests/broken-images/e2e-2024-01-31-1.spec.ts
+
+# Run all tests in a directory
+npx playwright test generated-tests/broken-images/
+
+# Run tests matching pattern
+npx playwright test generated-tests/**/*.spec.ts
+```
+
+### 3. **Run with Options**
+```bash
+# Run with headed browser (show browser)
+npx playwright test --headed
+
+# Run on specific browser
+npx playwright test --browser=chromium
+npx playwright test --browser=firefox
+
+# Run in debug mode
+npx playwright test --debug
+
+# Run with timeout
+npx playwright test --timeout=60000
+```
+
+### 4. **Install Playwright (if not already installed)**
+```bash
+# Install Playwright browsers
+npx playwright install
+
+# Install specific browsers
+npx playwright install chromium
+npx playwright install webkit
+```
+
+### 5. **Run During Development**
+```bash
+# Run in watch mode
+npx playwright test --watch
+
+# Run with UI
+npx playwright test --ui
+```
+
+### 6. **CI/CD Integration**
+```bash
+# Headless mode (default for CI)
+CI=true npx playwright test
+
+# With specific config
+npx playwright test --config=playwright.config.ts
+```
+
+### 7. **From Generated Test Directory**
+```bash
+cd generated-tests/broken-images
+npx playwright test e2e-2024-01-31-1.spec.ts
+```
+
 ## Best Practices
 
 1. **Configure Appropriately**: Enable only the test types you need to reduce noise
@@ -150,6 +349,7 @@ The test generation capability is designed to work seamlessly with the existing 
 3. **Use Dry Run**: Test with dry-run mode first to validate output
 4. **Parallel Execution**: Use parallel execution for faster results on large test suites
 5. **Custom Prompts**: The LLM prompts can be customized for specific requirements
+6. **Install Playwright**: Ensure Playwright browsers are installed before running tests
 
 ## Example Generated Test
 
