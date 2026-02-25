@@ -32,7 +32,7 @@ export class TestExecutor {
       maxConcurrency: 4,
       timeout: 30000,
       retryCount: 2,
-      ...config
+      ...config,
     };
   }
 
@@ -52,7 +52,7 @@ export class TestExecutor {
         }
 
         // Write test file
-        writeFileSync(filePath, test.content, 'utf8');
+        writeFileSync(filePath, test.content, "utf8");
         savedFiles.push(filePath);
 
         logger.info(`Saved test: ${test.name} -> ${filePath}`);
@@ -67,11 +67,11 @@ export class TestExecutor {
   async executeTests(tests: GeneratedTest[]): Promise<TestExecutionResult[]> {
     if (this.config.dryRun) {
       logger.info("Dry run mode: skipping test execution");
-      return tests.map(test => ({
+      return tests.map((test) => ({
         test,
         success: true,
         output: "Dry run - test execution skipped",
-        executionTime: 0
+        executionTime: 0,
       }));
     }
 
@@ -84,7 +84,9 @@ export class TestExecutor {
     }
   }
 
-  private async executeTestsSequential(tests: GeneratedTest[]): Promise<TestExecutionResult[]> {
+  private async executeTestsSequential(
+    tests: GeneratedTest[],
+  ): Promise<TestExecutionResult[]> {
     const results: TestExecutionResult[] = [];
 
     for (const test of tests) {
@@ -95,13 +97,15 @@ export class TestExecutor {
     return results;
   }
 
-  private async executeTestsParallel(tests: GeneratedTest[]): Promise<TestExecutionResult[]> {
+  private async executeTestsParallel(
+    tests: GeneratedTest[],
+  ): Promise<TestExecutionResult[]> {
     const results: TestExecutionResult[] = [];
     const chunks = this.chunkArray(tests, this.config.maxConcurrency!);
 
     for (const chunk of chunks) {
       const chunkResults = await Promise.all(
-        chunk.map(test => this.executeSingleTest(test))
+        chunk.map((test) => this.executeSingleTest(test)),
       );
       results.push(...chunkResults);
     }
@@ -109,7 +113,9 @@ export class TestExecutor {
     return results;
   }
 
-  private async executeSingleTest(test: GeneratedTest): Promise<TestExecutionResult> {
+  private async executeSingleTest(
+    test: GeneratedTest,
+  ): Promise<TestExecutionResult> {
     const startTime = Date.now();
     let lastError: Error | undefined;
 
@@ -118,8 +124,8 @@ export class TestExecutor {
     for (let attempt = 1; attempt <= this.config.retryCount! + 1; attempt++) {
       try {
         const output = execSync(`bun test "${test.filePath}"`, {
-          encoding: 'utf8',
-          timeout: this.config.timeout
+          encoding: "utf8",
+          timeout: this.config.timeout,
         });
 
         const executionTime = Date.now() - startTime;
@@ -128,14 +134,16 @@ export class TestExecutor {
           test,
           success: true,
           output,
-          executionTime
+          executionTime,
         };
       } catch (error) {
         lastError = error as Error;
         const executionTime = Date.now() - startTime;
 
         if (attempt <= this.config.retryCount!) {
-          logger.warn(`Test ${test.name} failed (attempt ${attempt}), retrying...`);
+          logger.warn(
+            `Test ${test.name} failed (attempt ${attempt}), retrying...`,
+          );
           await this.delay(1000 * attempt); // Exponential backoff
         }
       }
@@ -143,13 +151,13 @@ export class TestExecutor {
 
     // All retries failed
     const executionTime = Date.now() - startTime;
-        return {
-          test,
-          success: false,
-          output: (lastError as any)?.stdout || '',
-          error: lastError?.message,
-          executionTime
-        };
+    return {
+      test,
+      success: false,
+      output: (lastError as any)?.stdout || "",
+      error: lastError?.message,
+      executionTime,
+    };
   }
 
   private chunkArray<T>(array: T[], chunkSize: number): T[][] {
@@ -161,12 +169,12 @@ export class TestExecutor {
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   generateTestReport(results: TestExecutionResult[]): string {
     const totalTests = results.length;
-    const passedTests = results.filter(r => r.success).length;
+    const passedTests = results.filter((r) => r.success).length;
     const failedTests = totalTests - passedTests;
     const totalTime = results.reduce((sum, r) => sum + r.executionTime, 0);
 
@@ -181,19 +189,19 @@ export class TestExecutor {
     if (failedTests > 0) {
       report += `## Failed Tests\n\n`;
       results
-        .filter(r => !r.success)
-        .forEach(result => {
+        .filter((r) => !r.success)
+        .forEach((result) => {
           report += `### ${result.test.name}\n`;
           report += `- **Type:** ${result.test.testType}\n`;
           report += `- **Priority:** ${result.test.priority}\n`;
           report += `- **File:** ${result.test.filePath}\n`;
-          report += `- **Error:** ${result.error || 'Unknown error'}\n\n`;
+          report += `- **Error:** ${result.error || "Unknown error"}\n\n`;
         });
     }
 
     report += `## All Test Results\n\n`;
-    results.forEach(result => {
-      const status = result.success ? '✅' : '❌';
+    results.forEach((result) => {
+      const status = result.success ? "✅" : "❌";
       report += `${status} **${result.test.name}** (${result.executionTime}ms)\n`;
       report += `- Type: ${result.test.testType}, Priority: ${result.test.priority}\n`;
       report += `- File: ${result.test.filePath}\n\n`;
@@ -202,14 +210,19 @@ export class TestExecutor {
     return report;
   }
 
-  async saveTestReport(results: TestExecutionResult[], outputPath: string): Promise<void> {
+  async saveTestReport(
+    results: TestExecutionResult[],
+    outputPath: string,
+  ): Promise<void> {
     const report = this.generateTestReport(results);
-    
+
     try {
-      writeFileSync(outputPath, report, 'utf8');
+      const dir = dirname(outputPath);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(outputPath, report, "utf8");
       logger.info(`Test report saved to: ${outputPath}`);
     } catch (error) {
-      logger.error('Failed to save test report:', error);
+      logger.error("Failed to save test report:", error);
     }
   }
 }
