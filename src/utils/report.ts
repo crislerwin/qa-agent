@@ -80,6 +80,7 @@ Pages Explored: ${visitedUrls?.length || 0}
   }
 
   try {
+    await fs.mkdir("reports", { recursive: true });
     await fs.writeFile(path, content);
     return path;
   } catch (error) {
