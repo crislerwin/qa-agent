@@ -40,7 +40,7 @@ export class AppDatabase {
   private initializeSchema() {
     // Agent sessions table (exploration state)
     // Renamed from 'sessions' to avoid conflict with browser_sessions
-    this.db.exec(`
+    this.db.run(`
             CREATE TABLE IF NOT EXISTS agent_sessions (
                 id TEXT PRIMARY KEY,
                 state TEXT NOT NULL,
@@ -50,7 +50,7 @@ export class AppDatabase {
         `);
 
     // Credentials table (encrypted authentication credentials)
-    this.db.exec(`
+    this.db.run(`
             CREATE TABLE IF NOT EXISTS credentials (
                 app_identifier TEXT PRIMARY KEY,
                 encrypted_data TEXT NOT NULL,
@@ -63,13 +63,22 @@ export class AppDatabase {
 
     // Browser sessions table (cookies and storage state)
     // Renamed from 'sessions' to avoid conflict with agent_sessions
-    this.db.exec(`
+    this.db.run(`
             CREATE TABLE IF NOT EXISTS browser_sessions (
                 app_identifier TEXT PRIMARY KEY,
                 cookies TEXT NOT NULL,
                 storage_state TEXT,
                 expires_at INTEGER,
                 created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            )
+        `);
+
+    // User configuration table (persisted CLI preferences, e.g. LLM provider)
+    this.db.run(`
+            CREATE TABLE IF NOT EXISTS user_config (
+                key        TEXT PRIMARY KEY,
+                value      TEXT NOT NULL,
                 updated_at INTEGER NOT NULL
             )
         `);

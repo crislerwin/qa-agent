@@ -6,6 +6,8 @@ import * as clack from "@clack/prompts";
 
 import { SessionRepository } from "./repositories/session.repository.ts";
 import { AppDatabase } from "./database/database.ts";
+import { resolveLlmConfig } from "./config/llm-config.ts";
+import { createModelFromConfig } from "./services/llm.ts";
 
 import { CredentialProvider } from "./auth/credential-provider.ts";
 
@@ -148,6 +150,12 @@ async function main() {
   // 0c. Session Management
   // Initialize shared database
   const db = AppDatabase.getInstance();
+
+  // 0d. LLM Provider Configuration
+  // (reads .env first → persisted config → interactive prompts)
+  const llmConfig = await resolveLlmConfig(db.getDatabase());
+  const resolvedModel = createModelFromConfig(llmConfig);
+
   const sessionRepo = new SessionRepository(db.getDatabase());
   const existingSessions = sessionRepo.listSessions().slice(0, 5); // Recent 5
 
@@ -277,6 +285,7 @@ async function main() {
     baseUrl: baseUrl as string,
     maxSteps: 10,
     sessionId: sessionId,
+    model: resolvedModel,
     auth: authConfig,
     enableTestGeneration: enableTestGeneration,
     ...testConfig,
