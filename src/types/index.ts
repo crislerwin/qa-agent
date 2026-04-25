@@ -77,6 +77,38 @@ export interface BrokenImageFinding {
   location: { x: number; y: number };
 }
 
+// ── Visual Regression Testing Types ──────────────────────
+export interface ViewportConfig {
+  width: number;
+  height: number;
+  name: string;
+}
+
+export interface VisualRegressionConfig {
+  enabled: boolean;
+  baselineDir: string;
+  currentDir: string;
+  diffDir: string;
+  viewports: ViewportConfig[];
+  threshold: number; // Pixel difference percentage threshold (0-1)
+  pixelmatchThreshold: number; // Sensitivity (0-1, lower = more strict)
+  captureFullPage: boolean;
+  generateDiffImages: boolean;
+}
+
+export interface VisualRegressionResult {
+  url: string;
+  viewport: ViewportConfig;
+  baselineExists: boolean;
+  baselinePath?: string;
+  currentPath: string;
+  diffPath?: string;
+  match: boolean;
+  diffPercentage: number;
+  diffPixelCount: number;
+  isNewBaseline: boolean;
+}
+
 // ── Single-Page Testing Types (RFC #9) ──────────────────────
 export interface LayoutAuditConfig {
   enabled: boolean;
@@ -108,6 +140,7 @@ export interface SinglePageTestConfig {
   strategy?: "comprehensive" | "critical-path" | "edge-cases";
   auth?: AgentConfig["auth"];
   layoutAudit?: LayoutAuditConfig; // NEW
+  visualRegression?: VisualRegressionConfig; // NEW
 }
 
 export interface TestStep {

@@ -6,7 +6,8 @@ import { ConsoleMonitor } from "../tools/console-errors.ts";
 import { NetworkMonitor } from "../tools/network-errors.ts";
 import { findBrokenImages } from "../tools/broken-images.ts";
 import { runLayoutAudit } from "../tools/layout-audit.ts";
-import type { AgentFinding, SinglePageTestConfig, SinglePageTestState, TestPlan, TestCase, TestStep, TestCaseResult } from "../types/index.ts";
+import { runVisualRegression } from "../tools/visual-regression.ts";
+import type { AgentFinding, SinglePageTestConfig, SinglePageTestState, TestPlan, TestCase, TestStep, TestCaseResult, VisualRegressionResult, VisualRegressionConfig } from "../types/index.ts";
 import { AppDatabase } from "../database/database.ts";
 import { AuthenticationManager } from "../auth/auth-manager.ts";
 import { SessionRepository } from "../repositories/session.repository.ts";
@@ -98,6 +99,9 @@ export class SinglePageTestingAgent {
       this.state.status = this.stopping ? "stopped" : "completed";
       this.state.currentAction = "Running layout audit...";
       await this.runLayoutAudit(this.page!);
+
+      this.state.currentAction = "Running visual regression...";
+      await this.runVisualRegression(this.page!);
 
       this.state.currentAction = "Done";
       this.state.endTime = Date.now();
@@ -358,6 +362,79 @@ export class SinglePageTestingAgent {
       }
     } catch (e) {
       logger.warn("Layout audit failed:", e);
+    }
+  }
+
+  async runVisualRegression(page: Page) {
+    if (this.config.visualRegression?.enabled !== true) return;
+    try {
+      this.state.currentAction = "Running visual regression...";
+      
+      const vrConfig: VisualRegressionConfig = {
+        enabled: true,
+        baselineDir: this.config.visualRegression.baselineDir ?? "./test-results/baselines",
+        currentDir: this.config.visualRegression.currentDir ?? "./test-results/current",
+        diffDir: this.config.visualRegression.diffDir ?? "./test-results/diffs",
+        viewports: this.config.visualRegression.viewports ?? [
+          { width: 1920, height: 1080, name: "desktop" },
+          { width: 768, height: 1024, name: "tablet" },
+          { width: 375, height: 667, name: "mobile" },
+        ],
+        threshold: this.config.visualRegression.threshold ?? 0.1,
+        pixelmatchThreshold: this.config.visualRegression.pixelmatchThreshold ?? 0.1,
+        captureFullPage: this.config.visualRegression.captureFullPage ?? true,
+        generateDiffImages: this.config.visualRegression.generateDiffImages ?? true,
+      };
+
+      const results = await runVisualRegression(page, this.config.targetUrl, vrConfig);
+
+      for (const result of results) {
+        const findings: AgentFinding[] = [];
+        
+        if (result.isNewBaseline) {
+          findings.push({
+            type: "visual_regression",
+            severity: "info",
+            category: "visual",
+            description: `New baseline created for ${result.viewport.name} (${result.viewport.width}x${result.viewport.height})`,
+            url: result.url,
+            metadata: {
+              baselinePath: result.baselinePath,
+              isNew: true,
+            },
+          });
+        } else if (!result.match) {
+          findings.push({
+            type: "visual_regression",
+            severity: "high",
+            category: "visual",
+            description: `Visual regression detected: ${result.diffPercentage.toFixed(2)}% difference in ${result.viewport.name} (${result.diffPixelCount} pixels)`,
+            url: result.url,
+            selector: result.viewport.name,
+            screenshot: result.currentPath,
+            metadata: {
+              baselinePath: result.baselinePath,
+              diffPath: result.diffPath,
+              diffPercentage: result.diffPercentage,
+              diffPixelCount: result.diffPixelCount,
+            },
+          });
+        }
+
+        if (findings.length > 0) {
+          this.state.results.push({
+            testCaseId: `visual-regression-${result.viewport.name}`,
+            status: result.match ? "passed" : "failed",
+            executionTimeMs: 0,
+            stepsExecuted: 0,
+            findings,
+          });
+        }
+      }
+
+      logger.info(`Visual regression complete: ${results.length} viewports tested`);
+    } catch (e) {
+      logger.warn("Visual regression failed:", e);
     }
   }
 }
