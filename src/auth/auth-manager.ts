@@ -48,12 +48,16 @@ export class AuthenticationManager {
       }
 
       // 3. Detect login flow
-      const loginFlow = await this.loginDetector.detect(page);
+      let loginFlow = await this.loginDetector.detect(page);
       if (!loginFlow) {
-        // If we can't detect a login flow, maybe we are already in (false negative on isAuthenticated)
-        // or it's not a login page.
-        // Let's assume if we are asked to auth, we should be on a login page or navigable to one.
-        // For now, fail.
+        // Try navigating to common login URLs (e.g. /sign-in, /login)
+        const navigated = await this.loginDetector.tryNavigateToLogin(page);
+        if (navigated) {
+          loginFlow = await this.loginDetector.detect(page);
+        }
+      }
+
+      if (!loginFlow) {
         return {
           success: false,
           method: "detection-failed",

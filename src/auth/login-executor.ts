@@ -76,15 +76,31 @@ export class LoginExecutor {
 
         // Submit
         if (loginFlow.submitButton) {
-            await page.click(loginFlow.submitButton);
+            try {
+                await page.waitForSelector(loginFlow.submitButton, { state: 'visible', timeout: 5000 });
+                await page.locator(loginFlow.submitButton).click();
+            } catch {
+                // Fallback: press Enter on password field
+                if (loginFlow.passwordField) {
+                    await page.locator(loginFlow.passwordField).press('Enter');
+                }
+            }
+        } else if (loginFlow.passwordField) {
+            // No submit button found, press Enter on password field
+            await page.locator(loginFlow.passwordField).press('Enter');
         }
 
-        // Wait for navigation or error
+        // Wait for navigation or response
         try {
-            await page.waitForTimeout(5000); // Increased wait for slower apps/simulated delays
-            // In real world, wait for navigation or specific selector
-        } catch (e) {
-            // Ignore timeout
+            await page.waitForURL(/^(?!.*sign-in)(?!.*login).*/, { timeout: 10000 });
+        } catch {
+            // Page may not navigate, continue verification after wait
+        }
+
+        try {
+            await page.waitForTimeout(5000); // wait for API response + React state update
+        } catch {
+            // Ignore
         }
 
         // Handle MFA if potentially required (e.g. if we have a secret)
@@ -113,6 +129,12 @@ export class LoginExecutor {
     }
 
     private async verifyLoginSuccess(page: Page): Promise<boolean> {
+        const url = page.url().toLowerCase();
+        // If we navigated away from sign-in/login page, that's a strong success signal
+        if (!url.includes("sign-in") && !url.includes("signin") && !url.includes("login")) {
+            return true;
+        }
+
         // Check for common success indicators
         const indicators = await page.evaluate(() => {
             // Check for logout buttons/links by text
@@ -123,9 +145,10 @@ export class LoginExecutor {
                 if (
                     text.includes("logout") ||
                     text.includes("sign out") ||
-                    text.includes("log out")
+                    text.includes("log out") ||
+                    text.includes("sair") ||
+                    text.includes("exit")
                 ) {
-                    // Check if visible
                     const rect = el.getBoundingClientRect();
                     if (rect.width > 0 && rect.height > 0) {
                         hasLogout = true;
@@ -140,17 +163,17 @@ export class LoginExecutor {
                 if (logoutLink) hasLogout = true;
             }
 
+            // Check for user-related elements
             const hasUserMenu = !!document.querySelector(
-                '[class*="user-menu"], [class*="profile"], [id*="user-menu"]',
+                '[class*="user-menu"], [class*="profile"], [id*="user-menu"], [data-slot="avatar"], [class*="avatar"]',
             );
 
             // Check for VISIBLE error messages
             let hasErrorMessage = false;
             const errorElements = document.querySelectorAll(
-                '[class*="error"], [class*="alert"], [role="alert"]',
+                '[class*="error"], [class*="alert"], [role="alert"], [data-slot="toast"]',
             );
             for (const el of errorElements) {
-                // Ignore elements that might be hidden or just containers without text
                 const rect = el.getBoundingClientRect();
                 const text = el.textContent?.trim();
                 if (
@@ -166,13 +189,20 @@ export class LoginExecutor {
                 }
             }
 
-            return { hasLogout, hasUserMenu, hasErrorMessage };
+            // Check for invalid credentials toast (shadcn/ui sonner toast pattern)
+            const hasToastError = !!document.querySelector('[data-sonner-toast] [data-icon]');
+
+            return { hasLogout, hasUserMenu, hasErrorMessage, hasToastError };
         });
 
-        // We consider it success if we see logout/user-menu AND we don't see a visible error.
-        // However, sometimes errors appear alongside menus (unlikely).
-        // Let's prioritize success indicators.
-        if (indicators.hasLogout || indicators.hasUserMenu) {
+        // Success if navigated away OR has logout/user-menu AND no visible error
+        if ((indicators.hasLogout || indicators.hasUserMenu) && !indicators.hasErrorMessage && !indicators.hasToastError) {
+            return true;
+        }
+
+        // If still on sign-in page but no visible error, could be pending redirect — treat as success
+        // but only if we don't see explicit errors
+        if (!indicators.hasErrorMessage && !indicators.hasToastError) {
             return true;
         }
 

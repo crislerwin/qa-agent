@@ -4,6 +4,7 @@ import { getDefaultModel } from "../../services/llm.ts";
 import { createLogger } from "../../utils/logger.ts";
 import type { TextContent } from "@modelcontextprotocol/sdk/types.js";
 import { activeTests } from "../server.ts";
+import type { AgentConfig } from "../../types/index.ts";
 
 const logger = createLogger("mcp:exploratory");
 
@@ -15,6 +16,10 @@ export async function handleRunExploratoryTest(args: {
   maxSteps?: number;
   mode?: string;
   sessionId?: string;
+  authRequired?: boolean;
+  authEmail?: string;
+  authPassword?: string;
+  authAppIdentifier?: string;
 }): Promise<{ content: TextContent[] }> {
   const baseUrl = String(args.baseUrl).trim();
   if (!baseUrl || !URL.canParse(baseUrl)) {
@@ -26,6 +31,32 @@ export async function handleRunExploratoryTest(args: {
     typeof args.sessionId === "string" && args.sessionId.trim()
       ? args.sessionId.trim()
       : `exp-${Date.now()}`;
+
+  // Build auth config if requested
+  let authConfig: AgentConfig["auth"] = undefined;
+  if (args.authRequired) {
+    const email = args.authEmail?.trim();
+    const password = args.authPassword?.trim();
+    const appId = args.authAppIdentifier?.trim() || "mcp-test";
+
+    if (!email || !password) {
+      throw new Error(
+        "authRequired is true but authEmail or authPassword is missing",
+      );
+    }
+
+    authConfig = {
+      required: true,
+      appIdentifier: appId,
+      credentials: {
+        email,
+        password,
+      },
+    };
+    logger.info(
+      `Auth configured for session ${testSessionId}: ${email} on app ${appId}`,
+    );
+  }
 
   // Record pending execution
   activeTests.set(testSessionId, {
@@ -48,6 +79,7 @@ export async function handleRunExploratoryTest(args: {
     sessionId: testSessionId,
     model,
     db,
+    auth: authConfig,
   });
 
   return {
@@ -59,6 +91,7 @@ export async function handleRunExploratoryTest(args: {
             sessionId: testSessionId,
             status: "started",
             message: `Exploratory test started for ${baseUrl}`,
+            authConfigured: !!authConfig,
             stats: {
               visitedPages: 0,
               findingsCount: 0,
@@ -79,16 +112,20 @@ async function startTestInBackground(options: {
   sessionId: string;
   model: import("@langchain/core/language_models/chat_models").BaseChatModel;
   db: AppDatabase;
+  auth?: AgentConfig["auth"];
 }) {
-  const { baseUrl, maxSteps, sessionId, model } = options;
+  const { baseUrl, maxSteps, sessionId, model, auth } = options;
 
   try {
-    const agent = new ExploratoryAgent({
+    const config: AgentConfig = {
       baseUrl,
       maxSteps,
       sessionId,
       model,
-    });
+      auth,
+    };
+
+    const agent = new ExploratoryAgent(config);
 
     agentInstances.set(sessionId, agent);
     logger.info(`Starting background test ${sessionId}`);
@@ -118,7 +155,10 @@ async function startTestInBackground(options: {
       completed = result.completed;
 
       if (execution) {
-        execution.progress = Math.min(100, Math.round((steps / maxSteps) * 100));
+        execution.progress = Math.min(
+          100,
+          Math.round((steps / maxSteps) * 100),
+        );
         execution.currentAction = result.action;
         execution.visitedUrlsCount = agent.getVisitedUrls().length;
         execution.findingsCount = agent.getFindings().length;
@@ -155,6 +195,8 @@ async function startTestInBackground(options: {
   }
 }
 
-export function getAgentInstance(sessionId: string): ExploratoryAgent | undefined {
+export function getAgentInstance(
+  sessionId: string,
+): ExploratoryAgent | undefined {
   return agentInstances.get(sessionId);
 }
