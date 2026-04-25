@@ -11,6 +11,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { TOOL_DEFINITIONS } from "./tools/definitions.ts";
 import { handleRunExploratoryTest } from "./tools/exploratory.ts";
+import { handleRunSinglePageTest } from "./tools/single-page.ts";
 import { handleGetTestStatus, handleStopTest } from "./tools/status.ts";
 import { handleListSessions } from "./tools/sessions.ts";
 import { handleTestReportResource } from "./resources/reports.ts";
@@ -72,27 +73,19 @@ export class TestingAgentMCPServer {
               },
             );
 
-          case "run_single_page_test": {
-            const sessionId =
-              (args.sessionId as string) || `sp-${Date.now()}`;
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: JSON.stringify(
-                    {
-                      sessionId,
-                      status: "not_implemented",
-                      message:
-                        "Single-page test tool is not yet implemented. Use run_exploratory_test instead.",
-                    },
-                    null,
-                    2,
-                  ),
-                } as TextContent,
-              ],
-            };
-          }
+          case "run_single_page_test":
+            return await handleRunSinglePageTest(
+              args as {
+                targetUrl: string;
+                maxTestCases?: number;
+                strategy?: string;
+                sessionId?: string;
+                authRequired?: boolean;
+                authEmail?: string;
+                authPassword?: string;
+                authAppIdentifier?: string;
+              },
+            );
 
           case "get_test_status":
             return await handleGetTestStatus(args as { sessionId: string });

@@ -74,3 +74,81 @@ export interface BrokenImageFinding {
   reason: string;
   location: { x: number; y: number };
 }
+
+// ── Single-Page Testing Types (RFC #9) ──────────────────────
+export interface SinglePageTestConfig {
+  targetUrl: string;
+  maxTestCases?: number;
+  model?: BaseChatModel;
+  sessionId?: string;
+  strategy?: "comprehensive" | "critical-path" | "edge-cases";
+  auth?: AgentConfig["auth"];
+}
+
+export interface TestStep {
+  action: "click" | "fill" | "select" | "hover" | "wait" | "verify" | "navigate";
+  selector?: string;
+  value?: string;
+  description: string;
+  condition?: string; // e.g. "if modal is visible"
+}
+
+export interface TestCase {
+  id: string;
+  name: string;
+  description: string;
+  priority: "critical" | "high" | "medium" | "low";
+  category: "form" | "navigation" | "interaction" | "validation" | "visual";
+  preconditions?: string[];
+  steps: TestStep[];
+  expectedOutcome: string;
+}
+
+export interface PageCoverage {
+  forms: number;
+  buttons: number;
+  links: number;
+  inputs: number;
+  otherInteractive: number;
+}
+
+export interface TestPlan {
+  pageUrl: string;
+  pageTitle: string;
+  totalTests: number;
+  estimatedDurationSeconds: number;
+  coverage: PageCoverage;
+  testCases: TestCase[];
+}
+
+export interface TestCaseResult {
+  testCaseId: string;
+  status: "passed" | "failed" | "skipped" | "error";
+  executionTimeMs: number;
+  stepsExecuted: number;
+  findings: AgentFinding[];
+  actualOutcome?: string;
+  errorMessage?: string;
+}
+
+export interface SinglePageTestState {
+  sessionId: string;
+  testPlan: TestPlan | null;
+  results: TestCaseResult[];
+  currentTestIndex: number;
+  status: "planning" | "executing" | "completed" | "failed" | "stopped";
+  currentAction: string;
+  lastError: string | null;
+  startTime: number;
+  endTime?: number;
+}
+
+export type DiscoveredElement = {
+  tag: string;
+  selector: string;
+  text: string;
+  attributes: Record<string, string | null>;
+  type?: string; // for input elements
+  isVisible: boolean;
+  interactable: boolean;
+};
