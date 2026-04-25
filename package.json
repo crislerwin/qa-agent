@@ -7,7 +7,9 @@
     "cli": "bun run src/index.ts",
     "run-tests": "bun run src/cli/run-tests.ts",
     "mcp-server": "bun run src/mcp/index.ts",
-    "build": "bun build src/index.ts --outdir ./dist --target bun --external playwright-core",
+    "build:cli": "bun build src/index.ts --outdir ./dist --target bun --external playwright-core",
+    "build:mcp": "bun build src/mcp/index.ts --outdir ./dist/mcp --target bun --external playwright-core",
+    "build:all": "bun run build:cli \u0026\u0026 bun run build:mcp",
     "start": "bun run dist/cli.js",
     "test": "bun test"
   },

@@ -82,6 +82,12 @@ export interface LayoutAuditConfig {
   enabled: boolean;
   maxElements: number;
   heuristics: string[]; // which heuristics to run (default: all)
+  screenshots?: {
+    enabled: boolean;
+    outputDir?: string;
+    highlightElements?: boolean;
+    type?: "png" | "jpeg";
+  };
 }
 
 export interface LayoutAuditFinding {
@@ -90,6 +96,8 @@ export interface LayoutAuditFinding {
   category: "layout" | "visual" | "other";
   message: string;
   selector?: string;
+  screenshot?: string; // Path to element screenshot
+  fullPageScreenshot?: string; // Path to full page reference screenshot
 }
 
 export interface SinglePageTestConfig {
