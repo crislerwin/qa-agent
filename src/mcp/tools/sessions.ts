@@ -43,8 +43,8 @@ export async function handleListSessions(args: {
     sessions.push({
       sessionId: sid,
       status: exec.status,
-      startTime: exec.startTime.toISOString(),
-      endTime: exec.endTime?.toISOString(),
+      startTime: exec.startTime instanceof Date ? exec.startTime.toISOString() : (typeof exec.startTime === 'number' ? new Date(exec.startTime).toISOString() : undefined),
+      endTime: exec.endTime instanceof Date ? exec.endTime.toISOString() : (typeof exec.endTime === 'number' ? new Date(exec.endTime).toISOString() : undefined),
       findingsCount: exec.findingsCount,
       visitedUrlsCount: exec.visitedUrlsCount,
     });
