@@ -65,6 +65,10 @@ export class TestingAgentMCPServer {
                 maxSteps?: number;
                 mode?: string;
                 sessionId?: string;
+                authRequired?: boolean;
+                authEmail?: string;
+                authPassword?: string;
+                authAppIdentifier?: string;
               },
             );
 

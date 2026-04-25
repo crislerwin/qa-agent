@@ -1,4 +1,7 @@
 import type { Page } from "playwright-core";
+import { createLogger } from "../utils/logger.ts";
+
+const logger = createLogger("auth:login-detector");
 
 export interface LoginFlow {
     type: "form" | "oauth" | "sso" | "magic-link" | "unknown";
@@ -68,6 +71,32 @@ export class LoginFlowDetector {
         return (
             loginKeywords.some((kw) => url.includes(kw) || title.includes(kw))
         );
+    }
+
+    /**
+     * Try navigating to common login URLs and check if they have login forms.
+     */
+    async tryNavigateToLogin(page: Page): Promise<boolean> {
+        const candidates = ["/sign-in", "/login", "/auth", "/signin"];
+        const base = new URL(page.url()).origin;
+
+        for (const path of candidates) {
+            try {
+                logger.info(`Trying login URL: ${base}${path}`);
+                await page.goto(`${base}${path}`, { waitUntil: "networkidle", timeout: 10000 });
+                await page.waitForTimeout(800); // wait for JS hydration
+
+                const passwordField = await this.findPasswordField(page);
+                if (passwordField) {
+                    logger.info(`Found login form at ${base}${path}`);
+                    return true;
+                }
+            } catch {
+                // Continue to next candidate
+            }
+        }
+
+        return false;
     }
 
     private async findUsernameField(page: Page): Promise<string | undefined> {
