@@ -1,6 +1,7 @@
 import { type Page } from "playwright-core";
 import { createLogger } from "../utils/logger";
-import type { LayoutAuditFinding } from "../types/index";
+import type { LayoutAuditFinding, LayoutAuditConfig } from "../types/index";
+import { captureLayoutFindingScreenshots, type ScreenshotConfig } from "./screenshot";
 
 const logger = createLogger("tool:layout-audit");
 
@@ -12,7 +13,7 @@ const SKIP_TAGS = new Set(["SCRIPT", "STYLE", "META", "LINK", "NOSCRIPT", "BASE"
 
 export async function runLayoutAudit(
   page: Page,
-  config: { maxElements?: number; heuristics?: string[] } = {}
+  config: { maxElements?: number; heuristics?: string[]; screenshots?: ScreenshotConfig; sessionId?: string } = {}
 ): Promise<LayoutAuditFinding[]> {
   logger.log("Running layout audit...");
   const { maxElements = 300, heuristics } = config;
@@ -238,5 +239,39 @@ export async function runLayoutAudit(
   );
 
   logger.log(`Layout audit found ${findings.length} issues`);
+
+  // Capture screenshots if enabled
+  if (config.screenshots?.enabled && findings.length > 0) {
+    logger.log("Capturing screenshots for layout findings...");
+    const screenshotConfig: ScreenshotConfig = {
+      enabled: true,
+      outputDir: config.screenshots.outputDir || "./test-results/layout-audit",
+      fullPage: true,
+      highlightElements: config.screenshots.highlightElements ?? true,
+      type: config.screenshots.type || "png",
+    };
+
+    const screenshotMap = await captureLayoutFindingScreenshots(
+      page,
+      findings,
+      screenshotConfig,
+      config.sessionId || "unknown"
+    );
+
+    // Attach screenshot paths to findings
+    for (const [index, paths] of screenshotMap.entries()) {
+      if (findings[index]) {
+        if (paths.elementPath) {
+          findings[index].screenshot = paths.elementPath;
+        }
+        if (paths.fullPagePath) {
+          findings[index].fullPageScreenshot = paths.fullPagePath;
+        }
+      }
+    }
+
+    logger.log(`Screenshots captured for ${screenshotMap.size} findings`);
+  }
+
   return findings;
 }

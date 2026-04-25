@@ -329,7 +329,16 @@ export class SinglePageTestingAgent {
       this.state.currentAction = "Running layout audit...";
       const max = this.config.layoutAudit?.maxElements ?? 300;
       const heuristics = this.config.layoutAudit?.heuristics;
-      const findings = await runLayoutAudit(page, { maxElements: max, heuristics });
+      
+      // Build screenshot config from layoutAudit config
+      const screenshotConfig = this.config.layoutAudit?.screenshots;
+      
+      const findings = await runLayoutAudit(page, { 
+        maxElements: max, 
+        heuristics,
+        screenshots: screenshotConfig,
+        sessionId: this.state.sessionId,
+      });
       for (const f of findings) {
         this.state.results.push({
           testCaseId: "layout-audit",
@@ -343,6 +352,7 @@ export class SinglePageTestingAgent {
             description: f.message,
             url: page.url(),
             selector: f.selector,
+            screenshot: f.screenshot,
           }],
         });
       }
