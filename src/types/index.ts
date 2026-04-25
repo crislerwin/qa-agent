@@ -2,18 +2,20 @@ import { type BaseChatModel } from "@langchain/core/language_models/chat_models"
 
 export interface AgentFinding {
   type:
-  | "broken_image"
-  | "console_error"
-  | "network_error"
-  | "validation_error"
-  | "functional_bug"
-  | "ux_issue"
-  | "bug"
-  | "other";
+    | "broken_image"
+    | "console_error"
+    | "network_error"
+    | "validation_error"
+    | "functional_bug"
+    | "ux_issue"
+    | "bug"
+    | "layout"
+    | "other";
   description: string;
   url: string;
   selector?: string; // unique element identifier (e.g. css selector)
   severity: "low" | "medium" | "high" | "critical";
+  category?: "layout" | "functional" | "visual" | "performance" | "security" | "other";
   screenshot?: string; // path to screenshot
   metadata?: Record<string, any>; // Additional context (status codes, error messages, etc.)
   occurrences?: string[]; // List of other URLs where this finding was seen
@@ -76,6 +78,20 @@ export interface BrokenImageFinding {
 }
 
 // ── Single-Page Testing Types (RFC #9) ──────────────────────
+export interface LayoutAuditConfig {
+  enabled: boolean;
+  maxElements: number;
+  heuristics: string[]; // which heuristics to run (default: all)
+}
+
+export interface LayoutAuditFinding {
+  type: string;
+  severity: "error" | "warning" | "info";
+  category: "layout" | "visual" | "other";
+  message: string;
+  selector?: string;
+}
+
 export interface SinglePageTestConfig {
   targetUrl: string;
   maxTestCases?: number;
@@ -83,6 +99,7 @@ export interface SinglePageTestConfig {
   sessionId?: string;
   strategy?: "comprehensive" | "critical-path" | "edge-cases";
   auth?: AgentConfig["auth"];
+  layoutAudit?: LayoutAuditConfig; // NEW
 }
 
 export interface TestStep {
