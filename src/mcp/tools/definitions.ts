@@ -65,10 +65,29 @@ export const TOOL_DEFINITIONS = [
         maxTestCases: {
           type: "number" as const,
           description: "Maximum number of test cases to execute",
+          default: 20,
         },
         sessionId: {
           type: "string" as const,
           description: "Optional session ID to resume",
+        },
+        authRequired: {
+          type: "boolean" as const,
+          description: "Whether authentication is required to access the application",
+          default: false,
+        },
+        authEmail: {
+          type: "string" as const,
+          description: "Email / username for authentication",
+        },
+        authPassword: {
+          type: "string" as const,
+          description: "Password for authentication",
+        },
+        authAppIdentifier: {
+          type: "string" as const,
+          description: "App identifier to store/retrieve saved credentials (default: 'mcp-test')",
+          default: "mcp-test",
         },
       },
       required: ["targetUrl"] as const,
