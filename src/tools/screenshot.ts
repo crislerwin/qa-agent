@@ -8,9 +8,9 @@ const logger = createLogger("tool:screenshot");
 
 export interface ScreenshotConfig {
   enabled: boolean;
-  outputDir: string;
-  fullPage: boolean;
-  highlightElements: boolean;
+  outputDir?: string;
+  fullPage?: boolean;
+  highlightElements?: boolean;
   quality?: number;
   type?: "png" | "jpeg";
 }

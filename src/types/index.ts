@@ -10,11 +10,12 @@ export interface AgentFinding {
     | "ux_issue"
     | "bug"
     | "layout"
+    | "visual_regression"
     | "other";
   description: string;
   url: string;
   selector?: string; // unique element identifier (e.g. css selector)
-  severity: "low" | "medium" | "high" | "critical";
+  severity: "info" | "low" | "medium" | "high" | "critical";
   category?: "layout" | "functional" | "visual" | "performance" | "security" | "other";
   screenshot?: string; // path to screenshot
   metadata?: Record<string, any>; // Additional context (status codes, error messages, etc.)
@@ -118,6 +119,7 @@ export interface LayoutAuditConfig {
     enabled: boolean;
     outputDir?: string;
     highlightElements?: boolean;
+    fullPage?: boolean;
     type?: "png" | "jpeg";
   };
 }

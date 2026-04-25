@@ -28,12 +28,17 @@ export async function handleRunSinglePageTest(args: {
     startTime: Date.now(),
   };
 
-  // Store initial state
+  // Store initial state (single-page test execution)
   activeTests.set(sessionId, {
     sessionId,
-    state: initialState,
-    abortController: { abort: () => {} },
-  });
+    baseUrl: args.targetUrl,
+    status: "running",
+    startTime: new Date(),
+    findingsCount: 0,
+    visitedUrlsCount: 0,
+    progress: 0,
+    currentAction: "Initializing browser...",
+  } as any);
 
   // Fire-and-forget
   (async () => {
@@ -67,7 +72,7 @@ export async function handleRunSinglePageTest(args: {
             agent.stop();
           },
         };
-        (entry as any).state = { ...(entry as any).state, currentAction: "Browser initialized, discovering elements..." };
+        (entry as any).state = { ...((entry as any).state || {}), currentAction: "Browser initialized, discovering elements..." };
       }
 
       const finalState = await agent.start();
@@ -77,13 +82,11 @@ export async function handleRunSinglePageTest(args: {
       logger.error(`Single-page test ${sessionId} failed:`, error);
       const entry = activeTests.get(sessionId);
       if (entry) {
-        entry.state = {
-          ...entry.state,
-          status: "failed",
-          lastError: error.message,
-          currentAction: "failed",
-          endTime: Date.now(),
-        };
+        if (entry) {
+          (entry as any).status = "failed";
+          (entry as any).lastError = error.message;
+          (entry as any).currentAction = "failed";
+        }
       }
     }
   })();

@@ -350,7 +350,7 @@ export class SinglePageTestingAgent {
           executionTimeMs: 0,
           stepsExecuted: 0,
           findings: [{
-            type: f.type,
+            type: f.type as AgentFinding["type"],
             severity: f.severity === "error" ? "high" : f.severity === "warning" ? "medium" : "low",
             category: "layout",
             description: f.message,
@@ -372,18 +372,18 @@ export class SinglePageTestingAgent {
       
       const vrConfig: VisualRegressionConfig = {
         enabled: true,
-        baselineDir: this.config.visualRegression.baselineDir ?? "./test-results/baselines",
-        currentDir: this.config.visualRegression.currentDir ?? "./test-results/current",
-        diffDir: this.config.visualRegression.diffDir ?? "./test-results/diffs",
-        viewports: this.config.visualRegression.viewports ?? [
+        baselineDir: this.config.visualRegression?.baselineDir ?? "./test-results/baselines",
+        currentDir: this.config.visualRegression?.currentDir ?? "./test-results/current",
+        diffDir: this.config.visualRegression?.diffDir ?? "./test-results/diffs",
+        viewports: this.config.visualRegression?.viewports ?? [
           { width: 1920, height: 1080, name: "desktop" },
           { width: 768, height: 1024, name: "tablet" },
           { width: 375, height: 667, name: "mobile" },
         ],
-        threshold: this.config.visualRegression.threshold ?? 0.1,
-        pixelmatchThreshold: this.config.visualRegression.pixelmatchThreshold ?? 0.1,
-        captureFullPage: this.config.visualRegression.captureFullPage ?? true,
-        generateDiffImages: this.config.visualRegression.generateDiffImages ?? true,
+        threshold: this.config.visualRegression?.threshold ?? 0.1,
+        pixelmatchThreshold: this.config.visualRegression?.pixelmatchThreshold ?? 0.1,
+        captureFullPage: this.config.visualRegression?.captureFullPage ?? true,
+        generateDiffImages: this.config.visualRegression?.generateDiffImages ?? true,
       };
 
       const results = await runVisualRegression(page, this.config.targetUrl, vrConfig);
