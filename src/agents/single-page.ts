@@ -5,6 +5,7 @@ import { createLogger } from "../utils/logger.ts";
 import { ConsoleMonitor } from "../tools/console-errors.ts";
 import { NetworkMonitor } from "../tools/network-errors.ts";
 import { findBrokenImages } from "../tools/broken-images.ts";
+import { runLayoutAudit } from "../tools/layout-audit.ts";
 import type { AgentFinding, SinglePageTestConfig, SinglePageTestState, TestPlan, TestCase, TestStep, TestCaseResult } from "../types/index.ts";
 import { AppDatabase } from "../database/database.ts";
 import { AuthenticationManager } from "../auth/auth-manager.ts";
@@ -95,6 +96,9 @@ export class SinglePageTestingAgent {
       }
 
       this.state.status = this.stopping ? "stopped" : "completed";
+      this.state.currentAction = "Running layout audit...";
+      await this.runLayoutAudit(this.page!);
+
       this.state.currentAction = "Done";
       this.state.endTime = Date.now();
       return this.getState();
@@ -317,5 +321,33 @@ export class SinglePageTestingAgent {
       findings.push({ type: "validation_error", description: `Visible error after "${tc.name}"`, severity: "high", url });
     }
     return findings;
+  }
+
+  async runLayoutAudit(page: Page) {
+    if (this.config.layoutAudit?.enabled === false) return;
+    try {
+      this.state.currentAction = "Running layout audit...";
+      const max = this.config.layoutAudit?.maxElements ?? 300;
+      const heuristics = this.config.layoutAudit?.heuristics;
+      const findings = await runLayoutAudit(page, { maxElements: max, heuristics });
+      for (const f of findings) {
+        this.state.results.push({
+          testCaseId: "layout-audit",
+          status: f.severity === "error" || f.severity === "warning" ? "failed" : "passed",
+          executionTimeMs: 0,
+          stepsExecuted: 0,
+          findings: [{
+            type: f.type,
+            severity: f.severity === "error" ? "high" : f.severity === "warning" ? "medium" : "low",
+            category: "layout",
+            description: f.message,
+            url: page.url(),
+            selector: f.selector,
+          }],
+        });
+      }
+    } catch (e) {
+      logger.warn("Layout audit failed:", e);
+    }
   }
 }
