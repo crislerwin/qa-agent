@@ -329,7 +329,7 @@ export class SinglePageTestingAgent {
       this.state.currentAction = "Running layout audit...";
       const max = this.config.layoutAudit?.maxElements ?? 300;
       const heuristics = this.config.layoutAudit?.heuristics;
-      const findings = await runLayoutAudit(page, max, heuristics);
+      const findings = await runLayoutAudit(page, { maxElements: max, heuristics });
       for (const f of findings) {
         this.state.results.push({
           testCaseId: "layout-audit",

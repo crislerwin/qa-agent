@@ -12,10 +12,10 @@ const SKIP_TAGS = new Set(["SCRIPT", "STYLE", "META", "LINK", "NOSCRIPT", "BASE"
 
 export async function runLayoutAudit(
   page: Page,
-  maxElements = 300,
-  heuristics?: string[]
+  config: { maxElements?: number; heuristics?: string[] } = {}
 ): Promise<LayoutAuditFinding[]> {
   logger.log("Running layout audit...");
+  const { maxElements = 300, heuristics } = config;
 
   const findings: LayoutAuditFinding[] = await page.evaluate(
     (opts: { maxElements: number; heuristics?: string[] }) => {
@@ -46,6 +46,9 @@ export async function runLayoutAudit(
         return tag;
       };
 
+      // Track which parent-container flex rows we've already flagged for misalignment
+      const flaggedMisalignedParents = new Set<Element>();
+
       for (const el of all) {
         if (!(el instanceof HTMLElement)) continue;
 
@@ -55,33 +58,10 @@ export async function runLayoutAudit(
         const vpH = window.innerHeight;
         const selector = getSelector(el);
 
-        // Skip intentionally hidden elements
+        // Skip explicitly hidden elements
         if (style.display === "none" || style.visibility === "hidden") continue;
-        // Skip small decorative elements (less than 3px) to reduce noise
-        if (rect.width < 3 && rect.height < 3) continue;
 
-        // ─── H1: orphan-text ───
-        if (enabled("orphan-text")) {
-          const orphanParent =
-            el.parentElement &&
-            ["BODY", "MAIN"].includes(el.parentElement.tagName);
-          if (
-            orphanParent &&
-            el.children.length === 0 &&
-            style.display.includes("inline") &&
-            (el.textContent?.trim().length || 0) > 30
-          ) {
-            results.push({
-              type: "orphan-text",
-              severity: "warning",
-              category: "layout",
-              message: `Text in ${selector} is directly under ${el.parentElement.tagName.toLowerCase()} without a proper block container`,
-              selector,
-            });
-          }
-        }
-
-        // ─── H2: invisible-interactive ───
+        // ─── H2: invisible-interactive (ZERO-SIZE, before size skip) ───
         if (enabled("invisible-interactive")) {
           const interactive = ["BUTTON", "A", "INPUT", "SELECT", "TEXTAREA"].includes(el.tagName);
           if (interactive && rect.width === 0 && rect.height === 0) {
@@ -95,9 +75,59 @@ export async function runLayoutAudit(
           }
         }
 
+        // ─── H7: zero-size-parent (ZERO-SIZE, before size skip) ───
+        if (enabled("zero-size-parent")) {
+          if (
+            style.display !== "contents" &&
+            rect.width === 0 &&
+            rect.height === 0 &&
+            el.children.length > 0
+          ) {
+            results.push({
+              type: "zero-size-container",
+              severity: "error",
+              category: "layout",
+              message: `Container ${selector} has zero dimensions but contains ${el.children.length} children`,
+              selector,
+            });
+          }
+        }
+
+        // Skip small decorative elements after zero-size heuristics
+        if (rect.width < 3 && rect.height < 3) continue;
+
+        // ─── H1: orphan-text ───
+        if (enabled("orphan-text")) {
+          const directText = Array.from(el.childNodes)
+            .filter((n) => n.nodeType === Node.TEXT_NODE)
+            .map((n) => n.textContent)
+            .join("")
+            .trim();
+          const orphanParent =
+            el.parentElement &&
+            el.parentElement.tagName === "BODY";
+          if (
+            orphanParent &&
+            el.children.length === 0 &&
+            directText.length > 30
+          ) {
+            results.push({
+              type: "orphan-text",
+              severity: "warning",
+              category: "layout",
+              message: `Text node in ${selector} is directly under body without a proper block container`,
+              selector,
+            });
+          }
+        }
+
         // ─── H3: empty-container ───
         if (enabled("empty-container")) {
-          const empty = el.children.length === 0 && !(el.textContent?.trim());
+          const empty =
+            el.children.length === 0 &&
+            !(Array.from(el.childNodes).some(
+              (n) => n.nodeType === Node.TEXT_NODE && n.textContent?.trim()
+            ));
           const big = rect.width >= 10 && rect.height >= 10;
           if (empty && big) {
             const spacer =
@@ -117,35 +147,46 @@ export async function runLayoutAudit(
           }
         }
 
-        // ─── H4: misaligned-siblings (flex) ───
+        // ─── H4: misaligned-siblings (when THIS element is a flex CONTAINER) ───
         if (enabled("misaligned-siblings")) {
-          if (style.display.includes("flex") && el.parentElement) {
-            const siblings = Array.from(el.parentElement.children).filter(
-              (c) => c !== el && c instanceof HTMLElement
-            ) as HTMLElement[];
-            for (const sib of siblings) {
-              const sr = sib.getBoundingClientRect();
-              const sameRow = Math.abs(rect.top - sr.top) < 5;
-              if (sameRow && rect.height > 10 && sr.height > 10) {
-                const ratio =
-                  Math.max(rect.height, sr.height) / Math.min(rect.height, sr.height);
-                if (ratio > 4) {
-                  results.push({
-                    type: "misaligned-siblings",
-                    severity: "info",
-                    category: "layout",
-                    message: `Flex siblings in ${selector} have very different heights (${Math.round(rect.height)}px vs ${Math.round(sr.height)}px)`,
-                    selector,
-                  });
-                  break;
+          if (style.display.includes("flex") && el.children.length >= 2) {
+            if (!flaggedMisalignedParents.has(el)) {
+              const children = Array.from(el.children).filter(
+                (c) => c instanceof HTMLElement
+              ) as HTMLElement[];
+              // Check all pairs of siblings in this container
+              for (let i = 0; i < children.length - 1; i++) {
+                const a = children[i];
+                const b = children[i + 1];
+                const ra = a.getBoundingClientRect();
+                const rb = b.getBoundingClientRect();
+                const sameRow =
+                  (style.flexDirection.includes("row") && Math.abs(ra.top - rb.top) < 5) ||
+                  (style.flexDirection.includes("column") && Math.abs(ra.left - rb.left) < 5) ||
+                  (Math.abs(ra.top - rb.top) < 5); // fallback
+                if (sameRow && ra.height > 10 && rb.height > 10) {
+                  const ratio =
+                    Math.max(ra.height, rb.height) /
+                    Math.min(ra.height, rb.height);
+                  if (ratio > 4) {
+                    results.push({
+                      type: "misaligned-siblings",
+                      severity: "info",
+                      category: "layout",
+                      message: `Flex children in ${selector} have very different heights (${Math.round(ra.height)}px vs ${Math.round(rb.height)}px)`,
+                      selector,
+                    });
+                    flaggedMisalignedParents.add(el);
+                    break;
+                  }
                 }
               }
             }
           }
         }
 
-        // ─── H5: overlapping-elements (significant overlap only) ───
-        if (enabled("overlapping")) {
+        // ─── H5: overlapping-elements ───
+        if (enabled("overlapping-elements")) {
           if (style.position === "absolute" || style.position === "fixed") {
             const siblings = Array.from(el.parentElement?.children || []).filter(
               (s) => s !== el && s instanceof HTMLElement
@@ -170,19 +211,15 @@ export async function runLayoutAudit(
           }
         }
 
-        // ─── H6: off-screen ───
-        if (enabled("off-screen")) {
+        // ─── H6: off-screen-element ───
+        if (enabled("off-screen-element")) {
           if (style.position !== "fixed" && style.position !== "sticky") {
             const farOff =
               rect.bottom < -50 ||
               rect.top > vpH + 50 ||
               rect.right < -50 ||
               rect.left > vpW + 50;
-            if (
-              farOff &&
-              rect.width > 0 &&
-              rect.height > 0
-            ) {
+            if (farOff && rect.width > 0 && rect.height > 0) {
               results.push({
                 type: "off-screen-element",
                 severity: "warning",
@@ -191,24 +228,6 @@ export async function runLayoutAudit(
                 selector,
               });
             }
-          }
-        }
-
-        // ─── H7: zero-size-parent ───
-        if (enabled("zero-size-parent")) {
-          if (
-            style.display !== "contents" &&
-            rect.width === 0 &&
-            rect.height === 0 &&
-            el.children.length > 0
-          ) {
-            results.push({
-              type: "zero-size-container",
-              severity: "error",
-              category: "layout",
-              message: `Container ${selector} has zero dimensions but contains ${el.children.length} children`,
-              selector,
-            });
           }
         }
       }
